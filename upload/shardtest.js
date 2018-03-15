@@ -16,6 +16,7 @@ function addShardsToManifest(manifest, filePath, manifestName, dir) {
   const chunkSize = Math.floor(fileSize/chunkNumber);
  
   const readable = fs.createReadStream(filePath);
+  // use Event: 'readable'
   readable.on('readable', function() {
     let chunk;
     // readable.read() is called automatically until the internal buffer is fully drained
@@ -42,14 +43,29 @@ function storeShards(chunk, chunkId) {
   if (!fs.existsSync(dir)){ fs.mkdirSync(dir); }
   
   const filePath = dir + '/' + chunkId;
+  
+  // writeToFolder(dir, chunkId, chunk);
 
   writeToFolder(dir, chunkId, chunk, function(err) {
     if (err) throw err;
     console.log("filePath: " + filePath + "size " + fs.statSync(filePath).size);
+    
+    // TODO: copyShards(chunk, chunkId, manifest)
   });
     
-    // add_to_cache(@shards, name, file_path)
-    // iterative_store(name, file_url(file_path))
+  // add_to_cache(@shards, name, file_path)
+  // iterative_store(name, file_url(file_path))
+}
+
+function copyShards(chunk, chunkId, manifest) {
+  // for chunkId 1 to 10
+  //  manifest[chunkId] = [];
+  //  - 3(or other number) times
+  //    - copyId = copy chunkId+random 2-byte
+  //    - manifest[chunkId].push(copyId)
+  //  manifest.chunkId.forEach(copyId)
+  //    filePath = './shards' + '/' + chunkId
+  //    iterativeStore(copyId, filePath);
 }
 
 function writeToFolder(dir, filename, filecontent, callback) {

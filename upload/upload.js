@@ -48,7 +48,7 @@ function addShardsToManifest(manifest, fileath, manifestName, dir) {
 }
 
 function generateManifest(filename, filesize) {
-  return { fileName: filename, fileSize: filesize, chunks: [] };
+  return { fileName: filename, fileSize: filesize, chunks: [] }; //TODO: Add copies 
 }
 
 function addManifestToFile(file, hashId) {

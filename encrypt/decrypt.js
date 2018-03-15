@@ -10,7 +10,7 @@ const file = 'orgexp.txt.crypt';
 
 const DecryptHelper = (function(filepath) {
   // Path to temporarily store decrypted version of file to be uploaded
-  const temppath = 'decrypt' + path.parse(filepath).name;  // go back to original ext
+  const temppath = 'decrypt-' + path.parse(filepath).name;  // go back to original ext
 
   // get the file password from the previously designated secret file
   const secretpath = filepath + 'secret.env';
@@ -28,7 +28,7 @@ const DecryptHelper = (function(filepath) {
 
   // start pipe
   r.pipe(decrypt).pipe(unzip).pipe(w)
-   .on('finish', () => console.log("The file is fully encrypted"));
+   .on('close', () => console.log("The file is fully encrypted"));
 });
 
 DecryptHelper(file);
