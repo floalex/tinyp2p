@@ -4,7 +4,6 @@ const path = require('path');
 const algorithm = 'aes-256-cbc';
 // zip the large file
 const zlib = require('zlib');
-// const encryptor = require('../encrypt/encrypt.js');
 
 function sha1Hash(file) {
   // doesn't work with `readFile`, get `undefined` for fileData
@@ -30,12 +29,14 @@ function addShardsToManifest(manifest, fileath, manifestName, dir) {
   readable.on('readable', () => {
     let chunk;
     // readable.read() is called automatically until the internal buffer is fully drained
-    // you  don't need remainder as the last chunkSize will equal to whatever bytes left
+    // you don't need remainder as the last chunkSize will equal to whatever bytes left
     while (null !== (chunk = readable.read(chunkSize))) {
       const chunkId = sha1HashContent(chunk);
       manifest.chunks.push(chunkId);
       // console.log(`Received ${chunk.length} bytes of data.`);
       // console.log(manifest.chunks.length);
+      
+      //storeShards(chunk, chunkId);
     }
   });
   readable.on('end', () => {
@@ -73,7 +74,7 @@ function storeShards(name, data) {
     // iterative_store(name, file_url(file_path))
 }
 
-const EncryptUploadHelper = (function(filepath) {
+const encrypt = (function(filepath, callback) {
   // Path to temporarily store encrypted version of file to be uploaded
   const tmppath = './' + filepath + '.crypt';
 
@@ -104,13 +105,21 @@ const EncryptUploadHelper = (function(filepath) {
   
   r.pipe(zip).pipe(encrypt).pipe(w).on('close', function() {
     console.log("The file is fully encrypted, generating manifest");
-    const file = tmppath;
-    const hash = sha1Hash(file);
-    addManifestToFile(file, hash);
+    // const file = tmppath;
+    // const hash = sha1Hash(file);
+    // addManifestToFile(file, hash);
+    callback(tmppath);
   });
 
 });
 
+const processUpload = (filePath) => {
+  encrypt(filePath, (encryptedFilePath) => {
+    const hash = sha1Hash(encryptedFilePath);
+    addManifestToFile(encryptedFilePath, hash);
+  });
+};
+
 const filename = '../encrypt/stream.pdf';
 
-EncryptUploadHelper(filename);
+processUpload(filename);
