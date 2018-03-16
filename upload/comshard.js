@@ -32,13 +32,14 @@ function assembleShards(manifest, chunkIds) {
   const fileDes =  destDir + '/' + manifest.fileName;
   let writeStream = fs.createWriteStream(fileDes);
   
-  // writeStream.write("hello");
   filePaths.forEach(path => {
-    writeStream.write(fs.readFileSync(path));
+    writeStream.write(fs.readFileSync(path), function() {
+      console.log("filePath: " + path + " size " + fs.statSync(path).size);
+    });
   });
-  
-  // once stream.write(chunk) returns false, emit the 'drain' event will be emitted 
-  writeStream.once('drain', () => {
+
+  // use end to signal no more data comes in
+  writeStream.end( () => {
     console.log('The file has been saved, ready to be decrypted!');
     DecryptHelper(fileDes, manifest.fileName);
   });

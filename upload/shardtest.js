@@ -15,13 +15,13 @@ function addShardsToManifest(manifest, filePath, manifestName, dir) {
   const chunkNumber = fileSize % setChunkNum === 0 ? setChunkNum : setChunkNum - 1;
   const chunkSize = Math.floor(fileSize/chunkNumber);
  
-  const readable = fs.createReadStream(filePath);
+  const readStream = fs.createReadStream(filePath);
   // use Event: 'readable', the 'readable' event indicates that the stream has new information
-  readable.on('readable', function() {
+  readStream.on('readable', function() {
     let chunk;
     // readable.read() is called automatically until the internal buffer is fully drained
     // you don't need remainder as the last chunkSize will equal to whatever bytes left
-    while (null !== (chunk = readable.read(chunkSize))) {
+    while (null !== (chunk = readStream.read(chunkSize))) {
       const chunkId = sha1HashContent(chunk);
       manifest.chunks.push(chunkId);
       // console.log(`Received ${chunk.length} bytes of data.`);
@@ -30,7 +30,7 @@ function addShardsToManifest(manifest, filePath, manifestName, dir) {
       storeShards(chunk, chunkId);
     }
   });
-  readable.on('end', () => {
+  readStream.on('end', () => {
     writeToFolder(dir, manifestName, JSON.stringify(manifest), function() {
       console.log('The manifest file has been saved!');
     });
@@ -48,7 +48,7 @@ function storeShards(chunk, chunkId) {
 
   writeToFolder(dir, chunkId, chunk, function(err) {
     if (err) throw err;
-    console.log("filePath: " + filePath + "size " + fs.statSync(filePath).size);
+    console.log("filePath: " + filePath + " size " + fs.statSync(filePath).size);
     
     // TODO: copyShards(chunk, chunkId, manifest)
   });
