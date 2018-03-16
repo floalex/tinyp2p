@@ -16,7 +16,7 @@ function addShardsToManifest(manifest, filePath, manifestName, dir) {
   const chunkSize = Math.floor(fileSize/chunkNumber);
  
   const readable = fs.createReadStream(filePath);
-  // use Event: 'readable'
+  // use Event: 'readable', the 'readable' event indicates that the stream has new information
   readable.on('readable', function() {
     let chunk;
     // readable.read() is called automatically until the internal buffer is fully drained
