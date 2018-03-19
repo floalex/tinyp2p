@@ -19,32 +19,67 @@ function sha1HashContent(fileData) {
   return crypto.createHash('sha1').update(fileData).digest('hex');
 }
 
-function addShardsToManifest(manifest, fileath, manifestName, dir) {
+function addShardsToManifest(manifest, filePath, manifestName, dir) {
   const fileSize = manifest.fileSize;
-  const setChunkNum = 10; // default Chunk number from SIA according to Reed-Solomon algorithm: https://blog.sia.tech/how-to-put-data-on-the-sia-network-784499a65b
+  const setChunkNum = 10; // default Chunk number from SIA: https://blog.sia.tech/how-to-put-data-on-the-sia-network-784499a65b
   const chunkNumber = fileSize % setChunkNum === 0 ? setChunkNum : setChunkNum - 1;
   const chunkSize = Math.floor(fileSize/chunkNumber);
  
-  const readable = fs.createReadStream(fileath);
-  readable.on('readable', () => {
+  const readStream = fs.createReadStream(filePath);
+  // use Event: 'readable', the 'readable' event indicates that the stream has new information
+  readStream.on('readable', function() {
     let chunk;
     // readable.read() is called automatically until the internal buffer is fully drained
     // you don't need remainder as the last chunkSize will equal to whatever bytes left
-    while (null !== (chunk = readable.read(chunkSize))) {
+    while (null !== (chunk = readStream.read(chunkSize))) {
       const chunkId = sha1HashContent(chunk);
       manifest.chunks.push(chunkId);
       // console.log(`Received ${chunk.length} bytes of data.`);
       // console.log(manifest.chunks.length);
       
-      //storeShards(chunk, chunkId);
+      storeShards(chunk, chunkId);
     }
   });
-  readable.on('end', () => {
-     return fs.writeFile(`${dir}/${manifestName}`, JSON.stringify(manifest), (err) => {
-      if (err) throw err;
+  readStream.on('end', () => {
+    writeToFolder(dir, manifestName, JSON.stringify(manifest), function() {
       console.log('The manifest file has been saved!');
     });
   });
+}
+
+function storeShards(chunk, chunkId) {
+  const dir = './shards';
+
+  if (!fs.existsSync(dir)){ fs.mkdirSync(dir); }
+  
+  const filePath = dir + '/' + chunkId;
+  
+  // writeToFolder(dir, chunkId, chunk);
+
+  writeToFolder(dir, chunkId, chunk, function(err) {
+    if (err) throw err;
+    console.log("filePath: " + filePath + " size " + fs.statSync(filePath).size);
+    
+    // TODO: copyShards(chunk, chunkId, manifest)
+  });
+    
+  // add_to_cache(@shards, name, file_path)
+  // iterative_store(name, file_url(file_path))
+}
+
+function copyShards(chunk, chunkId, manifest) {
+  // for chunkId 1 to 10
+  //  manifest[chunkId] = [];
+  //  - 3(or other number) times
+  //    - copyId = copy chunkId+random 2-byte
+  //    - manifest[chunkId].push(copyId)
+  //  manifest.chunkId.forEach(copyId)
+  //    filePath = './shards' + '/' + chunkId
+  //    iterativeStore(copyId, filePath);
+}
+
+function writeToFolder(dir, filename, filecontent, callback) {
+  return fs.writeFile(`${dir}/${filename}`, filecontent, callback);
 }
 
 function generateManifest(filename, filesize) {
@@ -64,14 +99,6 @@ function addManifestToFile(file, hashId) {
   }
   
   addShardsToManifest(manifest, file, manifestName, dir);
-}
-
-function storeShards(name, data) {
-    // file_path = '/shards/' + name
-
-    // write_to_subfolder(Defaults::ENVIRONMENT[:shards], name, data)
-    // add_to_cache(@shards, name, file_path)
-    // iterative_store(name, file_url(file_path))
 }
 
 const encrypt = (function(filepath, callback) {

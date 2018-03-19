@@ -13,8 +13,6 @@ const fs = require('fs');
 const zlib = require('zlib');
 
 const path = require('path');
-const async = require('async');
-const encryptor = require('../encrypt/encrypt.js');
 
 const EncryptHelper = (function(filepath) {
   // Path to temporarily store encrypted version of file to be uploaded

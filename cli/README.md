@@ -1,0 +1,1 @@
+## need to run `npm install -g` when making bin changes
