@@ -23,9 +23,22 @@ console.log(chalk.bold.magenta("Hello, welcome to batchain!"));
 const node1 = new BatNode();
 node1.port = 1237;
 node1.host = '127.0.0.1';
-
 if (bat_sample.upload) {
   console.log(chalk.yellow('sample node2 upload files to sample node1'));
+  
+  // const fileSize = fs.statSync(bat_sample.upload).size;
+  // console.log(fileSize);
+  
+  // const barOpts = {
+  //   width: 20,
+  //   total: fileSize,
+  //   clear: true
+  // };
+  // var bar = new ProgressBar(' uploading [:bar] :percent :etas', barOpts);
+  
+  // fileStream.on('data', function (chunk) {
+  //   bar.tick(chunk.length);
+  // });
   
   // process file upload in the specified path('../encrypt/orgexp.txt');
   const node2 = new BatNode();
@@ -36,9 +49,7 @@ if (bat_sample.upload) {
 } else if (bat_sample.download) {
   console.log(chalk.yellow('sample node2 download files from sample node1'));
   const node2 = new BatNode();
-  node2.retrieveFile(bat_sample.download, node1.port, node1.host, function() {
-    console.log("File download and decrypt complete");
-  });
+  node2.retrieveFile(bat_sample.download, node1.port, node1.host);
   
 } else {
   runSampleNode();
@@ -55,7 +66,7 @@ function runSampleNode() {
   const node1ConnectionCallback = (serverConnection) => {
     serverConnection.on('data', (receivedData, error) => {
     // console.log("received data: ", receivedData)
-      receivedData = receivedData ? JSON.parse(receivedData) : {}; 
+      receivedData = JSON.parse(receivedData)
       //console.log(receivedData, "FROM SERVER")
 
       if (receivedData.messageType === "RETRIEVE_FILE") {
@@ -76,4 +87,3 @@ function runSampleNode() {
   //fileSystem.composeShards('../manifest/4f112a6ec12a710bc3cc4fba8d334ab09f87e2c4.batchain') //results in a decrypted-example.txt saved to personal dir
 
 }
-

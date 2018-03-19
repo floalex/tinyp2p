@@ -68,5 +68,6 @@ const DecryptHelper = (function(filepath, fileName) {
    .on('close', () => console.log("The file is fully encrypted"));
 });
 
-const manifestFile = './manifest/shardtest.bat';
+// const manifestFile = './manifest/shardtest.bat';
+const manifestFile = './manifest/f03a2380644b6ea7477a8b0c50b2633b4f9ee396.bat';
 composeShards(manifestFile);

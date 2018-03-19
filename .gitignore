@@ -2,6 +2,9 @@ node_modules/
 shards/
 hosted/
 personal/
+manifest/
+upload/shards/
+
 
 *.old
 CURRENT
@@ -10,3 +13,4 @@ LOCK
 *.log
 *.pdf
 *.env
+*.crypt

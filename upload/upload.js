@@ -147,6 +147,6 @@ const processUpload = (filePath) => {
   });
 };
 
-const filename = '../encrypt/stream.pdf';
+const filename = '../encrypt/test.pdf';
 
 processUpload(filename);
