@@ -89,6 +89,7 @@ class BatNode {
       fileName: shards[shardIdx],
       fileContent: fs.readFileSync(`./shards/${shards[shardIdx]}`)
     }
+    
     client.write(JSON.stringify(message))
   }
   // Upload file will process the file then send it to the target node

@@ -11,4 +11,17 @@ const fileSystem = require('../utils/file').fileSystem;
 
 batchain 
   .command('sample', 'see the sample nodes running')
+  .option('-l, --list', 'view your list of uploaded files in BatChain network')
   .parse(process.argv);
+
+if (batchain.list) {
+  console.log("You current file list: ");
+  const fs = require('fs');
+  const manifestFolder = './manifest/';
+  
+  fs.readdirSync(manifestFolder).forEach(file => {
+    const manifestFilePath = manifestFolder + file;
+    const manifest = fileSystem.loadManifest(manifestFilePath);
+    console.log('name: ' + manifest.fileName + '; manifest path: ' + manifestFilePath);
+  });
+}
