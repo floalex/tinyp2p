@@ -3,6 +3,7 @@
 'use strict';
 
 const batchain = require('commander');
+const chalk = require('chalk');
 
 const BatNode = require('../batnode').BatNode;
 const PERSONAL_DIR = require('../utils/file').PERSONAL_DIR;
@@ -15,7 +16,7 @@ batchain
   .parse(process.argv);
 
 if (batchain.list) {
-  console.log("You current file list: ");
+  console.log(chalk.bold.cyan("You current file list: "));
   const fs = require('fs');
   const manifestFolder = './manifest/';
   

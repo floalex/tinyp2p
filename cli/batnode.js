@@ -152,6 +152,7 @@ class BatNode {
     client.on('end', () => {
       console.log('end')
       fileUtils.decrypt(`./personal/${fileName}`)
+      retrievalCallback;
     })
   }
 }
