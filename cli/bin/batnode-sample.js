@@ -4,11 +4,13 @@
 
 const bat_sample = require('commander');
 const chalk = require('chalk');
+const ProgressBar = require('progress');
 
 const BatNode = require('../batnode').BatNode;
 const PERSONAL_DIR = require('../utils/file').PERSONAL_DIR;
 const HOSTED_DIR = require('../utils/file').HOSTED_DIR;
 const fileSystem = require('../utils/file').fileSystem;
+const fs = require('fs');
 
 bat_sample
   .description("Demo connection")
@@ -24,6 +26,20 @@ node1.host = '127.0.0.1';
 
 if (bat_sample.upload) {
   console.log(chalk.yellow('sample node2 upload files to sample node1'));
+  
+  // const fileSize = fs.statSync(bat_sample.upload).size;
+  // console.log(fileSize);
+  
+  // const barOpts = {
+  //   width: 20,
+  //   total: fileSize,
+  //   clear: true
+  // };
+  // var bar = new ProgressBar(' uploading [:bar] :percent :etas', barOpts);
+  
+  // fileStream.on('data', function (chunk) {
+  //   bar.tick(chunk.length);
+  // });
   
   // process file upload in the specified path('../encrypt/orgexp.txt');
   const node2 = new BatNode();
