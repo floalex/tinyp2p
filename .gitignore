@@ -1,5 +1,7 @@
 node_modules/
 shards/
+hosted/
+personal/
 
 *.old
 CURRENT
@@ -7,3 +9,4 @@ LOG
 LOCK
 *.log
 *.pdf
+*.env
