@@ -14,3 +14,5 @@ LOCK
 *.pdf
 *.env
 *.crypt
+*.jpg
+*.batchain

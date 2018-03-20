@@ -25,3 +25,1625 @@ Hi, I am a file waiting to be encrypted! Hi, I am a file waiting to be encrypted
 Hi, I am a file waiting to be encrypted! Hi, I am a file waiting to be encrypted!
 
 Hi, I am a file waiting to be encrypted! Hi, I am a file waiting to be encrypted!
+
+Node.js Async Tutorial
+Posted on December 16, 2013 by Justin
+
+I’ve been doing a lot of backend development in Node.js recently. Node.js runs on a single threaded event loop and leverages asynchronous calls for doing various things, like I/O operations. While other languages will send a database query and wait there for the result to come back, Node.js will not. When you send a database query, Node.js will continue executing the code that comes after it, then jump back when the result is available.
+
+
+This is a powerful concept that enables gains in efficiency, but occasionally requires a bit more work on your end to deal with certain situations. One of those situations, which I’ve run into quite frequently, is the need to wait for a number of asynchronous operations to finish before executing additional code.
+
+For example, maybe you have an array of items that you want to save to your database. Once they’re all saved, you want to execute a function that calculates some stats.
+
+Your first thought might be to do something like this:
+
+// Loop through some items
+items.forEach(function(item){
+  // Call asynchronous function, often a save() to DB
+  item.someAsyncCall();
+});
+ 
+// At this point, we've fired a bunch of async calls
+// but they're probably not all done executing yet
+ 
+// This function is meant to be executed once all the async
+// calls above are done, but we don't know if/when they are,
+// and therein lies the problem with this approach
+doSomethingOnceAllAreDone();
+As you can see in the comments above, there’s an issue here. You may (and probably will) execute doSomethingOnceAllAreDone() before everything above it is actually done.
+
+One of the best solutions to this problem is to use the node-async package which includes a number of functions for dealing with situations like this. I’m going to show you how to resolve this issue using two different node-async features.
+
+async.each()
+First, we’ll look at the async.each() function. This is the simpler solution to the problem. The function takes an array of items, then iterates over them calling a wrapper function which accepts the item as an argument. When all the calls are complete, you specify a final function to be called.
+
+// Include the async package
+// Make sure you add "async" to your package.json
+async = require("async");
+  
+// 1st para in async.each() is the array of items
+async.each(items,
+  // 2nd param is the function that each item is passed to
+  function(item, callback){
+    // Call an asynchronous function, often a save() to DB
+    item.someAsyncCall(function (){
+      // Async call is done, alert via callback
+      callback();
+    });
+  },
+  // 3rd param is the function to call when everything's done
+  function(err){
+    // All tasks are done now
+    doSomethingOnceAllAreDone();
+  }
+);
+async.parallel()
+The solution above works well if you simply need to iterate over a collection, but what if we have a more complex situation? Rather than iterating over a collection, async.parallel() allows you to push a bunch of (potentially unrelated) asynchronous calls into an array. Once we have the array populated, we execute all the tasks inside it, then call a function when we’re done.
+
+// Include the async package
+// Make sure you add "async" to your package.json
+async = require("async");
+ 
+// Array to hold async tasks
+var asyncTasks = [];
+ 
+// Loop through some items
+items.forEach(function(item){
+  // We don't actually execute the async action here
+  // We add a function containing it to an array of "tasks"
+  asyncTasks.push(function(callback){
+    // Call an async function, often a save() to DB
+    item.someAsyncCall(function(){
+      // Async call is done, alert via callback
+      callback();
+    });
+  });
+});
+ 
+// At this point, nothing has been executed.
+// We just pushed all the async tasks into an array.
+ 
+// To move beyond the iteration example, let's add
+// another (different) async task for proof of concept
+asyncTasks.push(function(callback){
+  // Set a timeout for 3 seconds
+  setTimeout(function(){
+    // It's been 3 seconds, alert via callback
+    callback();
+  }, 3000);
+});
+ 
+// Now we have an array of functions doing async tasks
+// Execute all async tasks in the asyncTasks array
+async.parallel(asyncTasks, function(){
+  // All tasks are done now
+  doSomethingOnceAllAreDone();
+});
+Conclusion
+Asynchronous functionality is available in lots of programming languages, not just Javascript. If you’re new to the concept, it can take a little time to wrap your head around the challenges. Luckily for Node.js developers, the node-async package provides a ton of useful features for dealing with those challenges. The examples above solve some of the simpler situations, but only scratch the surface. Check out the node-async repo for more code and examples.
+
+I’ve uploaded full (executable) code for the examples in this post to GitHub here: https://github.com/justinklemm/nodejs-async-tutorial
+
+
+How to write beautiful Node.js APIs using async/await and the Firebase Database
+
+This tutorial will cover the typical use cases you’ll come across when writing RESTful API endpoints to read and write to a Firebase Database instance.
+
+There will be a focus on beautiful asynchronous code, which makes use of the async/await feature in Node.js (available in v7.6 and above).
+
+(Feel free to smile sweetly as you wave goodbye to callback hell 👋)
+
+Prerequisites
+I’ll assume that you already have a Node.js application set up with the Firebase Admin SDK. If not, then check out the official setup guide.
+
+Writing data
+First off, let’s create an example POST endpoint which will save words to our Firebase Database instance:
+
+
+This is a very basic endpoint which takes a userId and a word value, then saves the given word to a words collection. Simple enough.
+
+But something’s wrong. We’re missing error handling! In the example above, we return a 201 status code (meaning the resource was created), even if the word wasn’t properly saved to our Firebase Database instance.
+
+So, let’s add some error handling:
+
+
+Now that the endpoint returns accurate status codes, the client can display a relevant message to the user. For example, “Word saved successfully.” Or “Unable to save word, click here to try again.”
+
+Note: if some of the ES2015+ syntax looks unfamiliar to you, check out the Babel ES2015 guide.
+Reading data
+OK, now that we’ve written some data to our Firebase Database, let’s try reading from it.
+
+First, let’s see what a GET endpoint looks like using the original promise-based method:
+
+
+(Error handling omitted for code brevity)
+Again, simple enough. Now let’s compare it with an async/await version of the same code:
+
+
+(Error handling omitted for code brevity)
+Note the async keyword added before the function parameters (req, res) and the await keyword which now precedes the db.ref() statement.
+
+The db.ref() method returns a promise, which means we can use the await keyword to “pause” execution of the script. (The await keyword can be used with any promise).
+
+The final res.send() method will only run after the db.ref() promise is fulfilled.
+
+That’s all well and good, but the true beauty of async/await becomes apparent when you need to chain multiple asynchronous requests.
+
+Let’s say you had to run a number of asynchronous functions sequentially:
+
+
+Not pretty. This is also known as the “pyramid of doom” (and we haven’t even added error handlers yet).
+
+Now take a look at the above snippet rewritten to use async/await:
+
+
+No more pyramid of doom! What’s more, all of the await statements can be wrapped in a single try/catch block to handle any errors:
+
+
+Truly beautiful.
+Parallel async/await requests
+What about cases where you need to fetch multiple records from your Firebase Database at the same time?
+
+Easy. Just use the Promise.all() method to run Firebase Database requests in parallel:
+
+
+One more thing
+When creating an endpoint to return data retrieved from a Firebase Database instance, be careful not to simply return the entire snapshot.val(). This can cause an issue with JSON parsing on the client.
+
+For example, say your client has the following code:
+
+
+Obviously, your client code would be using async/await ;)
+The snapshot.val() returned by Firebase can either be a JSON object, or null if no record exists. If null is returned, the response.json() in the above snippet will throw an error, as it’s attempting to parse a non-object type.
+
+To protect yourself from this, you can use Object.assign() to always return an object to the client:
+
+
+Thanks for reading!
+
+Interested in seeing a real-world project built on top of Firebase and Node.js? Check out Vocabify, the vocabulary builder that helps you remember the words you come across.
+
+[
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/opinion/how-america-can-put-thailand-back-on-track.html",
+    "snippet": "Washington should rein in the junta's increasingly dictatorial ways by isolating it from traditional Bangkok-based elites.",
+    "lead_paragraph": "Washington should rein in the junta's increasingly dictatorial ways by isolating it from traditional Bangkok-based elites.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/opinion/23joehnk/23joehnk-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/opinion/23joehnk/23joehnk-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/opinion/23joehnk/23joehnk-articleLarge.jpg",
+        "height": 680,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/opinion/23joehnk/23joehnk-articleLarge.jpg",
+          "xlargeheight": "680"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/opinion/23joehnk/23joehnk-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/opinion/23joehnk/23joehnk-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "How America Can Put Thailand Back on Track",
+      "content_kicker": "Op-Ed Contributors",
+      "kicker": "Op-Ed Contributors",
+      "print_headline": "How America Can Put Thailand Back on Track"
+    },
+    "keywords": [],
+    "pub_date": "2016-03-23T11:30:00Z",
+    "document_type": "article",
+    "news_desk": "OpEd",
+    "section_name": "Opinion",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "firstname": "Tom",
+          "middlename": "Felix",
+          "lastname": "JOEHNK",
+          "rank": 1,
+          "role": "reported",
+          "organization": ""
+        },
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Ilya",
+          "rank": 2,
+          "lastname": "GARGER"
+        }
+      ],
+      "original": "By TOM FELIX JOEHNK and ILYA GARGER"
+    },
+    "type_of_material": "Op-Ed",
+    "_id": "56f1709079881066516b251a",
+    "word_count": "1073",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/sports/soccer/barcelona-buddies-messi-neymar-suarez-will-be-rivals-world-cup-qualifying.html",
+    "snippet": "The pride of Europe scatters for World Cup qualifiers Thursday in South America, with Barcelona teammates facing each other.",
+    "lead_paragraph": "The pride of Europe scatters for World Cup qualifiers Thursday in South America, with Barcelona teammates facing each other.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/sports/23hughes/23hughes-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/sports/23hughes/23hughes-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/sports/23hughes/23hughes-articleLarge.jpg",
+        "height": 400,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/sports/23hughes/23hughes-articleLarge.jpg",
+          "xlargeheight": "400"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/sports/23hughes/23hughes-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/sports/23hughes/23hughes-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Barcelona Buddies Will Be Fierce Rivals This Week",
+      "content_kicker": "Global Soccer",
+      "print_headline": "Barcelona Buddies Will Be Fierce Rivals This Week"
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Soccer"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Barcelona (Soccer Team)"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "persons",
+        "value": "Messi, Lionel"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "persons",
+        "value": "Neymar"
+      },
+      {
+        "rank": "5",
+        "is_major": "N",
+        "name": "persons",
+        "value": "Suarez, Luis (1987- )"
+      },
+      {
+        "rank": "6",
+        "is_major": "N",
+        "name": "subject",
+        "value": "World Cup 2018 (Soccer)"
+      },
+      {
+        "rank": "7",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Copa America (Soccer)"
+      }
+    ],
+    "pub_date": "2016-03-23T11:30:00Z",
+    "document_type": "article",
+    "news_desk": "Sports",
+    "section_name": "Sports",
+    "subsection_name": "Soccer",
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Rob",
+          "rank": 1,
+          "lastname": "HUGHES"
+        }
+      ],
+      "original": "By ROB HUGHES"
+    },
+    "type_of_material": "News",
+    "_id": "56f1192e7988103bb4cadc7b",
+    "word_count": "903",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/sports/dementia-care-tailored-to-nfl-retirees.html",
+    "snippet": "Validus plans to build 33 centers over five years, starting with one that will open in September outside Orlando, Fla., where many N.F.L. retirees live.",
+    "lead_paragraph": "Validus plans to build 33 centers over five years, starting with one that will open in September outside Orlando, Fla., where many N.F.L. retirees live.",
+    "abstract": null,
+    "print_page": "",
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-articleLarge.jpg",
+        "height": 400,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-articleLarge.jpg",
+          "xlargeheight": "400"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/sports/23MEMORY1/23MEMORY1-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Dementia Care, Tailored to N.F.L. Retirees",
+      "print_headline": "Dementia Care, Tailored to N.F.L. "
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Football"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Dementia"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Chronic Traumatic Encephalopathy"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Concussions"
+      },
+      {
+        "rank": "5",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Retirement Communities and Assisted Living"
+      },
+      {
+        "rank": "6",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "National Football League"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Sports",
+    "section_name": "Sports",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Ken",
+          "rank": 1,
+          "lastname": "BELSON"
+        }
+      ],
+      "original": "By KEN BELSON"
+    },
+    "type_of_material": "News",
+    "_id": "56f1e8c679881066516b2686",
+    "word_count": "1389",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/sports/a-victory-for-the-visitors-but-a-celebration-for-the-fans.html",
+    "snippet": "James Loney hit a home run for Tampa Bay, Rudy Reyes homered for the hosts&#8217; only run, and the Rays won the first game in 17 years between a major league club and Cuba, as President Obama and Cuban President Raul Castro watched in Havana.",
+    "lead_paragraph": "James Loney hit a home run for Tampa Bay, Rudy Reyes homered for the hosts&#8217; only run, and the Rays won the first game in 17 years between a major league club and Cuba, as President Obama and Cuban President Raul Castro watched in Havana.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-articleLarge.jpg",
+        "height": 348,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-articleLarge.jpg",
+          "xlargeheight": "348"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/sports/23-Y-CUBAGAME-1/23-Y-CUBAGAME-1-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "A Victory for the Visitors, but a Celebration for the Fans",
+      "content_kicker": "Rays 4, Cuba 1 | Exhibition",
+      "kicker": "Rays 4, Cuba 1 | Exhibition",
+      "print_headline": "A Victory for the Visitors, but a Celebration for the Fans"
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Baseball"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "subject",
+        "value": "United States International Relations"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Tampa Bay Rays"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "glocations",
+        "value": "Cuba"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Sports",
+    "section_name": "Sports",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Damien",
+          "rank": 1,
+          "lastname": "CAVE"
+        }
+      ],
+      "original": "By DAMIEN CAVE"
+    },
+    "type_of_material": "News",
+    "_id": "56f1e56679881066516b267d",
+    "word_count": "1069",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/nyregion/leon-h-charney-investor-cable-tv-host-and-peace-broker-is-dead-at-77.html",
+    "snippet": "Mr. Charney helped bring about the Camp David peace accords in 1978 by arranging secret talks between the Egyptian president, Anwar el-Sadat, and the Israeli prime minister, Menachem Begin.",
+    "lead_paragraph": "Mr. Charney helped bring about the Camp David peace accords in 1978 by arranging secret talks between the Egyptian president, Anwar el-Sadat, and the Israeli prime minister, Menachem Begin.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-articleLarge.jpg",
+        "height": 400,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-articleLarge.jpg",
+          "xlargeheight": "400"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/nyregion/23charney-obit/23charney-obit-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Leon H. Charney, Investor, Cable TV Host and Peace Broker, Is Dead at 77",
+      "print_headline": "Leon H. Charney, 77, Cable TV Host and Peace Broker"
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Jews and Judaism"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "New York University School of Medicine"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "persons",
+        "value": "Carter, Jimmy"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "glocations",
+        "value": "New York City"
+      },
+      {
+        "rank": "5",
+        "is_major": "N",
+        "name": "glocations",
+        "value": "Israel"
+      },
+      {
+        "rank": "6",
+        "is_major": "N",
+        "name": "subject",
+        "value": "International Relations"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Metro",
+    "section_name": "N.Y. / Region",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Ralph",
+          "rank": 1,
+          "lastname": "BLUMENTHAL"
+        }
+      ],
+      "original": "By RALPH BLUMENTHAL"
+    },
+    "type_of_material": "Obituary",
+    "_id": "56f1e35e79881066516b2679",
+    "word_count": "894",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/us/georgia-worker-found-dead-in-hotel-freezer.html",
+    "snippet": "A kitchen worker died after apparently being trapped in a walk-in freezer about 13 hours in an Atlanta hotel, the police said.",
+    "lead_paragraph": "A kitchen worker died after apparently being trapped in a walk-in freezer about 13 hours in an Atlanta hotel, the police said.",
+    "abstract": null,
+    "print_page": "",
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [],
+    "headline": {
+      "main": "Georgia: Worker Found Dead in Hotel Freezer",
+      "content_kicker": "National Briefing | South",
+      "print_headline": "Georgia: Worker Found Dead In Freezer "
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Hotels and Travel Lodgings"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "glocations",
+        "value": "Atlanta (Ga)"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Deaths (Fatalities)"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "National",
+    "section_name": "U.S.",
+    "subsection_name": null,
+    "byline": {
+      "person": [],
+      "original": "By THE ASSOCIATED PRESS",
+      "organization": "THE ASSOCIATED PRESS"
+    },
+    "type_of_material": "Brief",
+    "_id": "56f1da8579881066516b2666",
+    "word_count": "113",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/sports/raiders-owner-looks-to-las-vegas-as-possible-new-home.html",
+    "snippet": "Mark Davis has put Las Vegas at the top of his list, even if many N.F.L. owners have sent word that they consider the idea a nonstarter because of the association with gambling.",
+    "lead_paragraph": "Mark Davis has put Las Vegas at the top of his list, even if many N.F.L. owners have sent word that they consider the idea a nonstarter because of the association with gambling.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-articleLarge.jpg",
+        "height": 405,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-articleLarge.jpg",
+          "xlargeheight": "405"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/sports/football/23nflmove-web/23nflmove-web-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Raiders&#8217; Owner Looks to Las Vegas as Possible New Home",
+      "content_kicker": "N.F.L. Roundup",
+      "kicker": "N.F.L. Roundup",
+      "print_headline": "Raiders&#8217; Owner Looks to Las Vegas, but Other Teams Object "
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Football"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Gambling"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Oakland Raiders"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "glocations",
+        "value": "Las Vegas (Nev)"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Sports",
+    "section_name": "Sports",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Ken",
+          "rank": 1,
+          "lastname": "BELSON"
+        }
+      ],
+      "original": "By KEN BELSON"
+    },
+    "type_of_material": "News",
+    "_id": "56f1ccc379881066516b2646",
+    "word_count": "558",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/arts/dance/flamenco-shows-of-intimacy-passion-and-spectacle.html",
+    "snippet": "For dance fans in New York, the madness this March has been the flood of flamenco, including performances by Ballet Flamenco de Andalucía and Noche Flamenca.",
+    "lead_paragraph": "For dance fans in New York, the madness this March has been the flood of flamenco, including performances by Ballet Flamenco de Andalucía and Noche Flamenca.",
+    "abstract": null,
+    "print_page": "5",
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-articleLarge.jpg",
+        "height": 400,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-articleLarge.jpg",
+          "xlargeheight": "400"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/23/arts/23FLAMENCO1/23FLAMENCO1-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Flamenco Shows of Intimacy, Passion and Spectacle",
+      "content_kicker": "Critic’s Notebook",
+      "kicker": "Critic’s Notebook",
+      "print_headline": "  Moments in the Spotlight, With Spectacle and Passion"
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Flamenco (Dance)"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Noche Flamenca"
+      },
+      {
+        "rank": "5",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Joe's Pub"
+      },
+      {
+        "rank": "6",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "New York City Center Theater"
+      },
+      {
+        "rank": "7",
+        "is_major": "N",
+        "name": "persons",
+        "value": "Barrio, Soledad"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Culture",
+    "section_name": "Arts",
+    "subsection_name": "Dance",
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Brian",
+          "rank": 1,
+          "lastname": "SEIBERT"
+        }
+      ],
+      "original": "By BRIAN SEIBERT"
+    },
+    "type_of_material": "News",
+    "_id": "56f1b10c79881066516b25f7",
+    "word_count": "681",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/fashion/sophia-webster-wins-british-fashion-award.html",
+    "snippet": "The London-based accessories designer is best known for her eye for color and playfully eccentric statement footwear.",
+    "lead_paragraph": "The London-based accessories designer is best known for her eye for color and playfully eccentric statement footwear.",
+    "abstract": null,
+    "print_page": null,
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-articleLarge.jpg",
+        "height": 900,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-articleLarge.jpg",
+          "xlargeheight": "900"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/22/fashion/23BFC1-WEB/22BFCVogue-WEB-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Sophia Webster Wins British Fashion Award",
+      "content_kicker": "On the Runway",
+      "kicker": "On the Runway"
+    },
+    "keywords": [
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "British Fashion Council"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Fashion and Apparel"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Awards, Decorations and Honors"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Styles",
+    "section_name": "Fashion & Style",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Elizabeth",
+          "rank": 1,
+          "lastname": "PATON"
+        }
+      ],
+      "original": "By ELIZABETH PATON"
+    },
+    "type_of_material": "News",
+    "_id": "56f1afcb79881066516b25f0",
+    "word_count": "495",
+    "slideshow_credits": null
+  },
+  {
+    "web_url": "http://www.nytimes.com/2016/03/23/business/chip-card-payment-system-delays-frustrate-retailers.html",
+    "snippet": "Many complications were widely predicted, but a lag in certifying payment terminals has added an unexpected wrinkle — and lots of finger-pointing.",
+    "lead_paragraph": "Many complications were widely predicted, but a lag in certifying payment terminals has added an unexpected wrinkle — and lots of finger-pointing.",
+    "abstract": null,
+    "print_page": "1",
+    "blog": [],
+    "source": "The New York Times",
+    "multimedia": [
+      {
+        "width": 190,
+        "url": "images/2016/03/19/business/21CARDS/21CARDS-thumbWide.jpg",
+        "height": 126,
+        "subtype": "wide",
+        "legacy": {
+          "wide": "images/2016/03/19/business/21CARDS/21CARDS-thumbWide.jpg",
+          "wideheight": "126",
+          "widewidth": "190"
+        },
+        "type": "image"
+      },
+      {
+        "width": 600,
+        "url": "images/2016/03/19/business/21CARDS/21CARDS-articleLarge.jpg",
+        "height": 400,
+        "subtype": "xlarge",
+        "legacy": {
+          "xlargewidth": "600",
+          "xlarge": "images/2016/03/19/business/21CARDS/21CARDS-articleLarge.jpg",
+          "xlargeheight": "400"
+        },
+        "type": "image"
+      },
+      {
+        "width": 75,
+        "url": "images/2016/03/19/business/21CARDS/21CARDS-thumbStandard.jpg",
+        "height": 75,
+        "subtype": "thumbnail",
+        "legacy": {
+          "thumbnailheight": "75",
+          "thumbnail": "images/2016/03/19/business/21CARDS/21CARDS-thumbStandard.jpg",
+          "thumbnailwidth": "75"
+        },
+        "type": "image"
+      }
+    ],
+    "headline": {
+      "main": "Chip-Card Payment System Delays Frustrate Retailers",
+      "print_headline": "A Bottleneck For Chip Cards"
+    },
+    "keywords": [
+      {
+        "rank": "1",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Credit Cards"
+      },
+      {
+        "rank": "2",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "MasterCard Inc"
+      },
+      {
+        "rank": "3",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Visa Inc"
+      },
+      {
+        "rank": "4",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "American Express Company"
+      },
+      {
+        "rank": "5",
+        "is_major": "N",
+        "name": "organizations",
+        "value": "Vantiv LLC"
+      },
+      {
+        "rank": "6",
+        "is_major": "N",
+        "name": "subject",
+        "value": "Shopping and Retail"
+      }
+    ],
+    "pub_date": "2016-03-23T00:00:00Z",
+    "document_type": "article",
+    "news_desk": "Business",
+    "section_name": "Business Day",
+    "subsection_name": null,
+    "byline": {
+      "person": [
+        {
+          "organization": "",
+          "role": "reported",
+          "firstname": "Rachel",
+          "rank": 1,
+          "lastname": "ABRAMS"
+        }
+      ],
+      "original": "By RACHEL ABRAMS"
+    },
+    "type_of_material": "News",
+    "_id": "56f1a2b379881066516b25c6",
+    "word_count": "1178",
+    "slideshow_credits": null
+  }
+]
+
+const fs = require('fs');
+fs.readFile('./hello.txt', 'utf-8', (err, data) => {
+  if (err) return console.error('Failed reading file:', err);
+  console.log('File contents:', data);
+});
+Not much to be said about this. To the method doing something async, you pass a callback (taking the customary err, dataWhateverEtc arguments) which is to be called after the thing is done (or failed)… The first argument is null except when an error happens (generally you process the error path first in you code and return or throw if you have an error). Simple. Well fit for Javascript since functions are first class objects. Obvious. Why the hell would anyone want more?!
+
+Well, ‘cause regular programs tend to need to do stuff in sequence, and when you have callbacks-async actions in sequence you end up with the “beloved” “pyramid”:
+
+doSuff1(arg1, (err, ret1) => {
+  if (err) {
+    ifErrorDoStufE1(argE1, (errE1, retE1) => {
+      // ...
+    });
+    // ...
+    return stuffToReturnWhenErr1;
+  }
+  // ...
+  thenAfterDoStuff2(arg2, (err, ret2) => {
+    // ...
+    thenAfterDoStuff3(arg3, (err, ret3) => {
+      // ...
+      thenAfterDoStuff4(arg4, (err, ret4) => {
+        // ...
+        thenAfterDoStuff5(arg5, (err, ret5) => {
+          // ...
+          thenAfterDoStuff6(arg6, (err, ret6) => {
+            // ...
+            thenAfterDoStuff7(arg7, (err, ret7) => {
+              // ...
+            });
+          });
+        });
+      });
+    });
+  });
+  // ...
+});
+You can imagine that the real-life production version of this is way more complicated. And you can imagine debugging this and how the stack traces look like. This is why this resulting pattern is less affectionately called “callback hell”.
+
+But wait… this is still the simplest case you can think of. Real-life code would need to do things like “when both async actions A and B are done (hopefully in parallel if they do IO) do C” or “when the first of async actions A, B and C finishes, do D”. Let’s check out how the first case looks with callbacks-async code:
+
+let leftToDo = 2; // or use booleans doneA and doneB instead...
+doA(argA, (errA, resA) => {
+  // ...
+  leftToDo--;
+  // ...to do after A
+  if (leftToDo === 0) {
+    todoAfterAB();
+  }
+});
+doB(argB, (errB, resB) => {
+  // ...
+  leftToDo--;
+  // ...to do after B
+  if (leftToDo === 0) {
+    todoAfterAB();
+  }
+});
+function todoAfterAB() {
+  // ...
+}
+This seems almost OK… until you realize that this is the simplest imaginable case and that those // ...s can be tens/hundreds of LOC. Enter:
+
+2. Async module: the callbacks wrangling cowboy to the rescue!
+
+The well known and loved 3rd party module async comes to the rescue with a well thought of set of async helpers that allows one to organize async callbacks in sane ways even in complex scenarios. It’s basically what you yourself would’ve invented after working with code like the one above for long enough… but the problem is that each developer would come up with his/her own slightly different way of handling these patterns! Standardization in handling callbacks-async code is the true feature of the async module. If you’re not familiar with it, you should, because you’ll definitely come across code using it, and you’ll have to be able to understand it, even if imho you should jump over it in your own code: if callbacks get too messy, just jump to Promises! …that’s my 2 cents of advice ;)
+
+Here’s how a slightly more complicated variant of the code above looks like using async :
+
+const async = require('async');
+async.parallel(
+  [
+    doA, // if A needs no args and no special logic afterwards
+    doB.bind(null, argB), // if B needs argB
+    (callback) => { // if C needs both arg and special logic
+      // ...stuff to do immediately before C
+      doC(argC, (errC, resC) => {
+        // ...stuff to do immediately after C
+        callback(resC);
+      });
+    }
+  ],
+  (err, results) => { // callback
+    // ...stuff to do after A, B and C are all done
+  }
+);
+This uses 3 async callbacks, it also takes care of collecting the results of all of them (in the results array), and it also shows how to handle async functions what need params and special logic happening immediately before and after an async callback.
+
+The name, “parallel” is a bit confusing, because as you know Node.js is single threaded, so the only thing happening in parallel is the IO, done outside Javascript code (so don’t ever think of using async.parallel for parallelizing CPU intensive code in Node.js, despite its name).
+
+The other nice consequence is that code doesn’t “float to the right” that much, even though you still need some nesting.
+
+So, uhm… that’s it, right? “Callback hell” / “pyramid code” was the problem, and the async module is the solution, no?
+
+…not really: those two were just the most obvious of problems. Thing is, real-life async code doesn’t sit nicely isolated, in one module, where you know what every line of code does and you can refactor to your heart’s desire. Your code will look more like this:
+
+In my-kitchen-module.js:
+
+// ...
+exports.init = function (arg1, arg2, cb) {
+  // ...
+  cookMeat(cmarg1, (err, r) => { // 🐌 async, this will take time
+    if (err) {
+      // ...
+      return;
+    }
+    // ...
+    exports.cookedMeat = r; // 🚩
+    // ...
+  });
+  // ...
+  if (nothingExplodedYet) {
+    // nothing exploded, the meat is cooking,
+    // and in the meantime most of the kitchen is usable
+    cb();
+  }
+}
+// ...
+…then in your program.js:
+
+const myKitchenModule = require('./my-kitchen-module');
+// ...
+myKitchenModule.init(err => {
+  // ...
+  /* 🌮 My awesome taco receipe: */
+  let tortilla = initTortilla();
+  let habaneros = chopHabaneros();
+  let avocado = chopAvocado();
+  // ...
+  let cookedMeat = myKitchenModule.cookedMeat;
+  let ingredients = [tortilla, habaneros, avocado, cookedMeat];
+  assembleTaco(ingredients, (err, taco) => {
+    if (err) {
+      console.error("Can't assemble taco because:", err);
+      return;
+    }
+    // ...
+    console.log("Your taco is served:", taco);
+  });
+});
+And now you’d be hungrily waiting for your taco, but instead you’d likely get a Can't assemble taco because: meat is not cooked yet (cookedMeat is undefined)! Ouch…
+
+The obvious solution to this problem that doesn’t involve changing when myKitchenModule.init happens etc., is to add another callback parameter to myKitchenModule.init, turning it to .init(kitchenReadyCb, meatCookedCb). Nice, but… in an actual project, you’ll have dozens of such callbacks to added to dozens of different modules. Do you really want to do that, go on adding modifications upon modification to external module code that you don’t completely understand, until something inevitable breaks? And this is just one example of a situation where writing async code forces you to refactor code external to your app. Yuck!
+
+(Note: Yeah, you could say that “other people should write better and more async friendly code” so you don’t have to patch shit up all day long! But… that’s not a very constructive attitude: imho one should thank other people for writing the code they’ve written so far and making it freely available and saving you hundreds of hours of drudge work! Be honest, if the code would really be that bad, you wouldn’t even bother patching it up to work for your app. This ain’t Haskell my friend, and you should adapt your expectations to the community and ecosystem you are working in.)
+
+Now, let’s solve the problem realistically. But what wast the problem? …well, let me rephrase it a bit:
+
+Code needs to be able to refer to async created/acquired resources, without having to care/know whether:
+- the resource has already been create/acquired
+- the resource is in the process of being created/acquired
+- the resource creation/acquisition process has not even been initiated yet, without requiring patching refactoring other code that sits outside our app or module. (We should be more general than this actually… but this is good enough to make the point, and we’re not writing a Computer Science textbook here.)
+
+More explicitly, I should be able to (1) write code referring to cookedMeat without having to care whether (a) cookedMeat exists, (b) is in the process of being prepared, or maybe (c) we haven’t even started the process of preparing it (maybe we’re waiting for it to be delivered) and it should (2) be the same code path, not an ugly multi-if/switch and (3) we shouldn’t have to put this code in a special place or to modify an external module for this either!
+
+Being slightly more theoretical we can say that: in most practical situations, complex callbacks-async code breaks incapsulation. But let’s stop rephrasing the problem(s) and move on to see the solution(s):
+
+3. Promises: the promised solution …delivered as a DIY recipe
+
+It turns out, that we can refer to values that may not exist yet, using only what the Javascript language offers (and without ugly hacks like a setTimeut and pooling every 50ms to see if “it’s done yet”). We just need to wrap our values that don’t exist yet into special container objects.
+
+Let’s simplify the code above a bit to see how things would look like this way:
+
+// magically wrap cookedMeat in a "promise"
+let cookedMeatPromise = ...✨ magic here...;
+/* 🌮 My awesome taco receipe: */
+let tortilla = initTortilla();
+let habaneros = chopHabaneros();
+let avocado = chopAvocado();
+// ...
+// 🚩 this must still work in the case where by the time we reach
+// 🚩 this line, meat has already been cooked
+myKitchenModule.cookedMeatPromise.whenMeatCooked((err, cookedMeat) => {
+  // ...
+  assembleTaco([tortilla, habaneros, avocado], (err, taco) => {
+    // ...
+    console.log("Your taco is served:", taco);
+  });
+});
+Only problem is that ...magic here... is not valid Javascript (at least until ES-yearWhenAIReachesSuperHumanLevel). And with the code arranged this way, you can’t really see any obvious way to make replace this with ES-7 code while still satisfying all requirements. Hmm… But maybe we can move things around a bit:
+
+let cookedMeatPromise = new CookedMeatPromise((res, rej) => {
+  cookMeat((err, r) => {
+    if (err) {
+      rej(err);
+      return;
+    }
+    // ...
+    res(r);
+  };
+});
+/* 🌮 My awesome taco receipe: */
+let tortilla = initTortilla();
+let habaneros = chopHabaneros();
+let avocado = chopAvocado();
+// ...
+// 🚩 this must still work in case by the time we reach
+// 🚩 this line, meat has already been cooked
+myKitchenModule.cookedMeatPromise.whenMeatCooked(
+  cookedMeat => {
+    // ...
+    assembleTaco([tortilla, habaneros, avocado], taco => {
+      // ...
+      console.log("Your taco is served:", taco);
+    });
+  },
+  err => console.error("Problem cooking meat:", err)
+);
+and now we can even figure out a tentative of a working implementation for the CookedMeatPromise class:
+
+class CookedMeatPromise {
+  constructor(cb) {
+    this._done = false;
+    cb(this._resolve, this._reject);
+  }
+  whenMeatCooked(resolve, reject) {
+    if (this._done) {
+      if (this._err) reject(this._err);
+      else resolve(this._cookedMeat);
+      return;
+    }
+    setTimeout(self.whenMeatCooked.bind(this, resolve, reject), 100);
+  }
+  _resolve(cookedMeat) {
+    this._cookedMeat = cookedMeat;
+    tis._done = true;
+  }
+  _reject(err) {
+    this._err = err;
+    this._done = true;
+  }
+}
+Now, don’t even imagine that the implementation above will work correctly in all possible cases… But it’s good enough to prove a point: that this can be done with nothing but the basic building blocks your language provides. An that it’s useful.
+
+Of course, there are problems, the most superficially obvious of which being that the specific names like whenMeatCooked will make it necessary to re-document this pattern for every case you use it slightly differently. We can standardize a bit, starting with renaming whenMeatCooked to then, and making it return this to make stuff chainable (fancy folks would say we’re building a “monad” here…), then adding another similar method called catch that only takes the error callback, and you can easily end up writing slightly nicer and more general code like this:
+
+let cookedMeatPromise = new Promise((resolve, reject) => {
+  cookMeat((err, r) => {
+    if (err) {
+      reject(err);
+      return;
+    }
+    // ...
+    resolve(r);
+  };
+});
+/* 🌮 My awesome taco receipe: */
+let tortilla = initTortilla();
+let habaneros = chopHabaneros();
+let avocado = chopAvocado();
+// ...
+// 🚩 this must still work in case by the time we reach
+// 🚩 this line, meat has already been cooked
+myKitchenModule.cookedMeatPromise.then(cookedMeat => {
+  // ...
+  assembleTaco([tortilla, habaneros, avocado], taco => {
+    // ...
+    console.log("Your taco is served:", taco);
+  });
+}).catch(err => console.error("Problem cooking meat:", err));
+It doesn’t seem much, but nicer matters when line after line of code piles up. And, it turns out you get more: with just a few tweaks you can add methods like Promise.race and Promise.all and just like that get like ~90% of the practically useful functionality provided by the async module. Add a couple more basic helpers like Promise.resolve (to write something like answer = Promise.resolve(42) and have a one liner promise that instantly resolves to the answer to the ultimate question of life, the universe and everything) and Promise.reject and you (almost) get the Promise/A+ specifications that Node.js and modern browsers implement (and can be polyfilled down to IE6 if you need).
+
+For comparison, this is the async.parallel example translated into promises-async code:
+
+let prA = doA(); // do A and return a promise for A
+let prB = doB(argB);
+let prC = doC(argC);
+prC.then(resC => { /* ...stuff to do immediately after C */ });
+Promise.all([prA, prB, prC]).then(results => {
+  // ...stuff to do after A, B and C are all successfully done
+}).catch(err => {
+  // ...handle first error that happened
+});
+Nice, but… what about all the older APIs that support callbacks instead of Promises? Well, it turns up you can easily convert/mix any callbacks-async API to/with a Promise-based API. Actually, if you ponder a bit at the Promise constructor code, you’ll figure out for yourself the “manual” way to do it (scroll down to the start of the section on async/await for an actual example). But you don’t even have to do this: popular Promises libraries like Bluebird.js (that provide a bunch of extra functionality, basically empowering the Promise class with the extra missing 10% of async code control provided by modules like async that you’d otherwise have to code yourself when using Promises) provide a Promise.promisifyAll method that can be called on an entire module, like fs = Promise.promisifyAll(require("fs")) and Boom!, you can use any Node.js module, standard lib or otherwise, with promises (it basically creates methods like readFileAsync which returns promises and leaves the default ones unmodified, without the Async suffix).
+
+And btw, mixing callbacks-async and promise-async code, even in the same file is A-OK imho. Consistency rulez, bien sûr, but mixed callbacks-promises code is easy enough to read, reason about, and debug.
+
+I’m going to stop here, even though promises are a topic you absolutely must understand in modern Javascript. No, you can’t just learn callbacks and then async/away. A deep understanding of promises is crucial for all the other things, like corutines/generators/async/await/whatever.
+
+So go and learn JS Promises from some of these excellent resources:
+
+JavaScript Promises: an Introduction @ Google Web Fundamentals: includes nice visual flow explanation, if unsure start with this one
+Using Promises @ MDN: concise/condensed
+Master the JavaScript Interview: What is a Promise? @ Eric Elliott’s Medium blog: lots of nice diagrams
+You’re Missing the Point of Promises: confusing for newbies, necessary reading for professional developers
+JavaScript Promise API @ David Walsh: if you like DW’s long but thorough and insightful explanations you might want to start with this
+promisejs.org: good intro and standard
+Now, moving on, it turns out this is still not the best one could do. And I’m gonna pull a “back from the future” trick on you to explain two more async patterns: (4) first the future (actually present and fully stable and ready to use since Node.js 8.0) and then (3) the coroutine/generators-based backported-future that allows one to write async/await-like code for browsers and older Node.js versions that don’t support the async and await keywords. And no, one can’t just skip learning the co/generators-async pattern in JS, as it’s already featured in prominent places like the official MongoDB-Node.js-driver docs, and there are tones of modules using it, some of which will inevitably remain unupdated/unmaintained while you’ll still need them. So, moving on…
+
+5. Async/Await: the right way …waaay too late!
+
+Let’s start explaining this by looking at an actual example:
+
+const fs = require('fs');
+function getFileContents(fileName) {
+  return new Promise((resolve, reject) => {
+    fs.readFile('hello.txt', 'utf-8', (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+getFileContents('hello.txt').then(data => {
+  console.log('File contents:', data)
+}).catch(err => {
+  console.error("Error reading file:", err);
+});
+I hope this makes sense. Though it seems slightly over-engineered, I know. But let’s imagine that getFileContents is not something we wrote ourselves, but part of some module’s API that is standardized to always return promises.
+
+Now… leaving aside the promise producing code, which will often be inside a library somewhere, even the promise consuming code looks ugly af. Lots of extra parens and boilerplate even for this extremely simplified example. Imagine production code using this pattern.
+
+What if the language itself could give you a helping hand and make it more natural to say things like "data is the value you get after waiting for getFileContents" or “the awaited result of getFileContents”. What if you could say something like this:
+
+console.log('File contents:',
+            await getFileContents('hello.txt'));
+See the callback… that’s not there? You could even put it in a temporary variable since putting funny expressions as method parameters is annoying to read, and have a let data = await getFileContents(...).
+
+But it turns out that having this syntactic sugar can actually make code harder to read and also make it harder for the language to optimize your code… so we need to be a tad bit more explicit: any await expression must be inside a function defined with the async keyword. So we can easily spot functions code that may look sync but actually does async stuff. The actual correct async/await version of the code above is more like this:
+
+// ...
+async function showFileContents() {
+  let data = await getFileContents('hello.txt');
+  console.log('File contents:', data);
+}
+showFileContents();
+But wait… there’s something missing here: error handling! Well, it turns out you get one more nice thing with async/await: you can ditch the ugly .catch(err => ...) callback and handle errors in your async code with the same ol’ try/catch you know and love:
+
+// ...
+async function showFileContents() {
+  try {
+    let data = await getFileContents('hello.txt');
+    console.log('File contents:', data);
+  } catch (err) {
+    console.error("Error reading file:", err);
+  }
+}
+showFileContents();
+Here you go! Life is sweet when the language you code in actually helps you. And, if you still can’t feel how much it helps, see how this more realistic example (still simplified because you know production-code error handling flow will never be that simple):
+
+getFileContents('hello.txt').then(data => {
+  // ...
+  return validator.validateFormat(data).then(isValid => {
+    // ...
+    return auth.getCurrentUser().then(user => {
+      // ...
+      return validator.validateSignature(data, user.sig).then(isSigValid => {
+        // ...
+        return dataParser.parse(data).then(parsedData => {
+          console.log('Action to do:', parsedData.action);
+          // ...
+        });
+      });
+    });
+  });
+}).catch(err => {
+  console.error("Error getting data from file:", err);
+});
+Turns nicely into this:
+
+try {
+  let data = await getFileContents('hello.txt');
+  // ...
+  await validator.validateFormat(data); // throws if invalid
+  // ...
+  let user = await auth.getCurrentUser();
+  // ...
+  await validator.validateSignature(data, user.sig); // throws if invalid
+  // ...
+  let parsedData = await dataParser.parse(data);
+  console.log('Action to do:', parsedData.action);
+  // ...
+} catch (err) {
+  console.error("Error getting data from file:", err);
+}
+See how linear and sequential the code reads now? And, while debugging code with promises is not such a pita, debugging async/await code is actually nice: you can actually use the debugger to step through code (with the thens of promises you’ll have to place breakpoints at the start of each, manually, because the debugger only steps through sync code). One can say that async/await finally brought sanity to Node.js!
+
+Oh, and one more thing: to use async/await, you actually need code that returns promises. Ain’t no other way to do it. I didn’t lie when I said before that you absolutely need to understand promises in JS! And I’m not the only one to say this.
+
+The important links between promises and async/await are:
+
+everything you await for is (usually) a Promise
+the returned value from an async function is a Promise,
+so you can gloriously end the previous example with:
+showFileContents().then(() => console.log('We did it!'))
+Btw, if you haven’t arrived here with some prior understanding of async/await, pause and read up on it:
+
+6 Reasons Why JavaScript’s Async/Await Blows Promises Away (Tutorial) @ hackernoon.com
+Async/Await: The Hero JavaScript Deserved @ twillio.com/blog
+Now… if you’ve gone so far, there’s one more step to do: a step back from this wonderful future!
+
+4. co/generators for async: the future, in past present
+
+What if you wanted all the goodness of async/await, but in a JS version without support for these keywords? Let’s see… could we engineer it without any help from the language? Where would we even start from?
+
+To answer this question it’s worth asking: what other slightly older JS feature allows pausing and resuming executing like async/await does? Uhm… generators? And, if you have an advanced enough understanding of JS generators (you can get it from here and here or here among other places), you could end up with a rewrite of the previous getFileContents example looking like this:
+
+const fs = require('fs');
+function getFileContents(gen) {
+  let g = gen();
+  let fileName = g.next().value;
+  console.log('File name:', fileName);
+  fs.readFile(fileName, 'utf-8', (err, data) => {
+    if (err) return g.throw(err);
+    g.next(data);
+  });
+}
+getFileContents(function* () {
+  try {
+    let data = yield 'hello.txt';
+    console.log('File contents:', data);
+  } catch (err) {
+    console.error("Error reading file:", err);
+  }
+});
+That’s cool, but… hardly any good: you’ve traded simple callbacks for generator callbacks, just to get to use the yield keyword as some context-dependent synonym of await. Now it’s more complicated and it would need more boilerplate and same nesting callbacks if you want a succession of async actions: “callback hell” + “generators madness” …yuck!
+
+But, if you’re a smart cookie, you’d have notice that this could be rewritten in a more general way and be made to work with promises… somehow. We’re not going to explain here how. By piling trick upon trick, you would reinvent what the famous co module does, and be able to write code like this:
+
+const co = require('co');
+co.wrap(function*() {
+  try {
+    let data = yield getFileContents('hello.txt');
+    // ...
+    yield validator.validateFormat(data); // throws if invalid
+    // ...
+    let user = yield auth.getCurrentUser();
+    // ...
+    yield validator.validateSignature(data, user.sig); // throws if invalid
+    // ...
+    let parsedData = yield dataParser.parse(data);
+    console.log('Action to do:', parsedData.action);
+    // ...
+  } catch (err) {
+    console.error("Error reading file:", err);
+  }
+}).then(() => console.log('We did it!'));
+So one can basically use generators to implement async/await in JS. I’ll let you decide whether this is awesome or scary.
+
+Things like the co are the work of very smart people who can’t stand living in the present, once they’ve seen the future! For regular folks like me, this may sometimes seem like some grotesque “intellectual masturbation”. But, it’s due to the work of people like them that we can have the sweet future of async/await: once they’ve got to play with co, people realized that async/await is the future, and they’ve worked hard to make it part of the language! So, despite your first instinct, thank them, don’t curse them!
+
+In the end, this is one more JS async pattern that you have to understand whether you like it or not: you will come across code using it!
+
+But… your dizzy mind wonders: which of these should I actually use?
+
+There’s no perfect answer, but here goes my opinionated rant:
+
+Which async patterns to use and when?
+
+My guide is to walk through these questions in order:
+
+Is your code very simple (less than 200 LOC, not much successive async operations leading to nested callbacks) OR extremely performance sensitive (like the inner loop of a game engine, where even creating promise objects would eat too much memory or be too slow)?
+THEN: use callbacks-async! Keep it simple stupid!
+Do you target pre-node-8.0 or browsers (without transpiling) OR you add stuff to a heavily-mixed-style codebase (which already uses callback, async, promises etc.)?
+THEN: use promises! This will keep things obvious and mix well with anything. And if standard promises are not full-featured enough for your use cases, just pull in something like Bluebird.
+Are you starting a new project targeting node ≥8.0 (or using a transpiler)?
+THEN: use async/awayt ffs! It’s 2017, let’s start acting like it…
+You’ll probably notice that I skipped two approaches:
+
+async module: I don’t really see a room for this, unless you’re working in an old-school callbacks-only project with a strict guideline against promises or anything newer… then by all means use it, it’s 10x better than reinventing a buggy version of it yourself.
+co/generators: again, this is a middle ground solution, for which I don’t see any room nowadays. If you can’t use async/await, then stick with promises! The code is readable enough, waaay more newbie friendly (especially when it comes to debugging) and can grow well into async/await later on. Really, forget about this, it was a useful experiment but its time has passed!
+One more question lingers: why “5+” ways, and not just “5”? Cause I’m modest enough to assume there are other ways I’m not yet aware yet… or ’cause Tim Toady says so…

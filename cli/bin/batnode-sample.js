@@ -25,7 +25,7 @@ node1.port = 1237;
 node1.host = '127.0.0.1';
 
 if (bat_sample.upload) {
-  console.log(chalk.yellow('sample node2 upload files to sample node1'));
+  console.log(chalk.yellow('sample node2 uploads files to sample node1'));
   
   // process file upload in the specified path('../encrypt/orgexp.txt');
   const node2 = new BatNode();
@@ -34,7 +34,7 @@ if (bat_sample.upload) {
   
   // node2.retrieveFile('example.txt.crypt', 1237, '127.0.0.1')
 } else if (bat_sample.download) {
-  console.log(chalk.yellow('sample node2 download files from sample node1'));
+  console.log(chalk.yellow('sample node2 downloads files from sample node1'));
   const node2 = new BatNode();
   node2.retrieveFile(bat_sample.download, node1.port, node1.host, function() {
     console.log("File download and decrypt complete");
@@ -55,7 +55,7 @@ function runSampleNode() {
   const node1ConnectionCallback = (serverConnection) => {
     serverConnection.on('data', (receivedData, error) => {
     // console.log("received data: ", receivedData)
-      receivedData = receivedData ? JSON.parse(receivedData) : {}; 
+      receivedData = JSON.parse(receivedData); 
       //console.log(receivedData, "FROM SERVER")
 
       if (receivedData.messageType === "RETRIEVE_FILE") {
@@ -63,9 +63,8 @@ function runSampleNode() {
         serverConnection.write(data)
         })
       } else if (receivedData.messageType === "STORE_FILE"){
-        //let content = new Buffer(receivedData.fileContent, 'base64')
-        //node1.writeFile(`./hosted/${receivedData.fileName}`, content)
         node1.receiveFile(receivedData)
+        serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
       }
     })
   }
