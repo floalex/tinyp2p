@@ -77,13 +77,14 @@ exports.fileSystem = (function(){
       while (null !== (chunk = readable.read(chunkSize))) {
         const chunkId = sha1HashData(chunk);
         manifest.chunks.push(chunkId);
-
+        
+        copyShards(chunk, chunkId, manifest);
         storeShards(chunk, chunkId)
       }
     });
 
     readable.on('end', () => {
-      fileSystem.writeFile(`${dir}/${manifestName}`, JSON.stringify(manifest), () => {
+      fileSystem.writeFile(`${dir}/${manifestName}`, JSON.stringify(manifest, null, '\t'), () => {
         callback(`${dir}/${manifestName}`)
       })
       
@@ -102,6 +103,34 @@ exports.fileSystem = (function(){
 
     addShardsToManifest(manifest, file, manifestName, dir, callback);
   }
+  
+  const copyShards = (chunk, chunkId, manifest) => {
+    // for chunkId 1 to 10
+    //  manifest[chunkId] = [];
+    //  - 3(or other number) times
+    //    - copyId = copy chunk+random 2-byte
+    //    - manifest[chunkId].push(copyId)
+    //  manifest.chunkId.forEach(copyId)
+    //    filePath = './shards' + '/' + chunkId
+    //    iterativeStore(copyId, filePath);
+    const copyNum = 3; 
+    let copyShardContent;
+    let appendBytes;
+    
+    manifest[chunkId] = [];
+    
+    for (let i = 1; i <= copyNum; i++) {
+      appendBytes = crypto.randomBytes(2).toString('hex');
+      copyShardContent = chunk + appendBytes;
+      // console.log(`Copy chunk has ${copyShardContent.length} bytes of data.`);
+      
+      const copyChunkId = sha1HashData(copyShardContent);
+      manifest[chunkId].push(copyChunkId);
+    }
+    
+    // console.log(chunkId + ": " + manifest[chunkId]);  
+  }
+  
   const storeShards = (chunk, chunkId) => {
     if (!fileSystem.existsSync('./shards')){ fileSystem.mkdirSync('./shards'); }
     
@@ -115,11 +144,11 @@ exports.fileSystem = (function(){
 
     const chunkIds = manifest.chunks
      // TODO: get the shards via iterativeFindValue and store the shards in local disk
-  // - iterate through the chunkIds array
-  //  - find the shard file based on chunkId(might need to use JS `startsWith`)
-  //   - if the file hasn't existed yet (by comparing file id)
-  //      - store the file 
-  //      - shardSaved += 1
+    // - iterate through the chunkIds array
+    //  - find the shard file based on chunkId(might need to use JS `startsWith`)
+    //   - if the file hasn't existed yet (by comparing file id)
+    //      - store the file 
+    //      - shardSaved += 1
 
     assembleShards(manifest, chunkIds)
   }
