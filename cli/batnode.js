@@ -158,8 +158,6 @@ class BatNode {
     while (shards.length > shardIdx) {
       let currentNodeInfo = nodes[nodeIdx];
       
-      console.log(currentNodeInfo);
-      
       this.sendShardToNode(currentNodeInfo, shards[shardIdx], shardIdx);
 
       shardIdx += 1;
@@ -170,7 +168,7 @@ class BatNode {
   nextNodeIdx(nodeIdx, shardIdx, nodesCount, shardsCount) {
     
     let atTailNode = (nodeIdx + 1 === nodesCount);
-    let remainingShards = (shardIdx + 1 <= shardsCount); //TODO need to ad to next master branch
+    let remainingShards = (shardIdx + 1 <= shardsCount);  //TODO need to ad to next master branch
     
     console.log("shardIdx: " + shardIdx);
     console.log("remainingShards: " + remainingShards);
@@ -182,7 +180,7 @@ class BatNode {
   }
   
   // Upload file will process the file then send it to the target node
-  uploadFile(port, host, filePath){
+  uploadFile(filePath){
     // Encrypt file and generate manifest
     const fileName = path.parse(filePath).base
     
@@ -199,7 +197,8 @@ class BatNode {
       
       // this.sendOneCopyShard(port, host, shardsOfManifest, manifest);
 
-      // this.sendShardsToOneNode(port, host, shardsOfManifest) 
+      // this.sendShardsToOneNode(port, host, shardsOfManifest);
+      
       this.sendShards(destinationNodes, shardsOfManifest);
     })
   }
