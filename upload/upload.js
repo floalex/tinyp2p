@@ -67,8 +67,6 @@ function storeShards(chunk, chunkId) {
   writeToFolder(dir, chunkId, chunk, function(err) {
     if (err) throw err;
     console.log("filePath: " + filePath + " size " + fs.statSync(filePath).size);
-    
-    // TODO: copyShards(chunk, chunkId, manifest)
   });
     
   // add_to_cache(@shards, name, file_path)
