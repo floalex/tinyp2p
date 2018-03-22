@@ -40,9 +40,14 @@ if (bat_sample.upload) {
 } else if (bat_sample.download) {
   console.log(chalk.yellow('sample node2 downloads files from sample node1'));
   const node2 = new BatNode();
-  node2.retrieveFile(bat_sample.download, node1.port, node1.host, function() {
-    console.log("File download and decrypt complete");
-  });
+  
+  // retrieve file from one node: node2.retrieveFile('example.txt.crypt', 1237, '127.0.0.1')
+  // node2.retrieveFileFromOneNode(bat_sample.download, node1.port, node1.host, function() {
+  //   console.log("File download and decrypt complete");
+  // });
+  
+  // retrieve file from nodes
+  node2.retrieveFile(bat_sample.download);
   
 } else {
   runSampleNode();
