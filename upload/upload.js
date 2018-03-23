@@ -33,7 +33,8 @@ function addShardsToManifest(manifest, filePath, manifestName, dir, callback) {
     // you don't need remainder as the last chunkSize will equal to whatever bytes left
     while (null !== (chunk = readStream.read(chunkSize))) {
       const chunkId = sha1HashData(chunk);
-      manifest.chunks.push(chunkId);
+      
+      // manifest.chunks.push(chunkId);
       // console.log(`Received ${chunk.length} bytes of data.`);
       // console.log(manifest.chunks.length);
       
@@ -87,7 +88,8 @@ function copyShards(chunk, chunkId, manifest) {
   let copyShardContent;
   let appendBytes;
   
-  manifest[chunkId] = [];
+  chunkId = [];
+  // manifest[chunkId] = [];
   
   for (let i = 1; i <= copyNum; i++) {
     appendBytes = crypto.randomBytes(2).toString('hex');

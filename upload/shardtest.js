@@ -23,7 +23,8 @@ function addShardsToManifest(manifest, filePath, manifestName, dir, callback) {
     // you don't need remainder as the last chunkSize will equal to whatever bytes left
     while (null !== (chunk = readStream.read(chunkSize))) {
       const chunkId = sha1HashContent(chunk);
-      manifest.chunks.push(chunkId);
+      manifest.chunks[chunkId] = [];
+      // manifest.chunks.push(chunkId);
       // console.log(`Received ${chunk.length} bytes of data.`);
       // console.log(manifest.chunks.length);
       
@@ -56,8 +57,8 @@ function copyShards(chunk, chunkId, manifest) {
   let copyShardContent;
   let appendBytes;
   let copyChunkId;
-  
-  manifest[chunkId] = [];
+
+  // manifest[chunkId] = [];
   
   for (let i = 1; i <= copyNum; i++) {
     appendBytes = crypto.randomBytes(2).toString('hex');
@@ -65,7 +66,8 @@ function copyShards(chunk, chunkId, manifest) {
     // console.log(`Copy chunk has ${copyShardContent.length} bytes of data.`);
     
     copyChunkId = sha1HashContent(copyShardContent);
-    manifest[chunkId].push(copyChunkId);
+    manifest.chunks[chunkId].push(copyChunkId);
+    // manifest[chunkId].push(copyChunkId);
   }
   
   // console.log(chunkId + ": " + manifest[chunkId]);  
@@ -94,6 +96,6 @@ function writeToFolder(dir, filename, filecontent, callback) {
 }
 
 // const manifest = {"fileName":"stream.pdf.crypt","fileSize":953504,"chunks":[]};
-const manifest = {"fileName":"cat.jpg.crypt","fileSize":41904,"chunks":[]};
+const manifest = {"fileName":"cat.jpg.crypt","fileSize":41904,"chunks":{}};
 
 addShardsToManifest(manifest, '../encrypt/cat.jpg.crypt', 'shardtest.bat', './manifest');

@@ -33,7 +33,11 @@ if (bat_sample.upload) {
   
   // process file upload in the specified path('../encrypt/orgexp.txt');
   const node2 = new BatNode();
- 
+  
+  // send to only one node
+  // node2.uploadFileToOneNode(node1.port, node1.host, bat_sample.upload);
+  
+  // send to multiple nodes 
   node2.uploadFile(bat_sample.upload);
   
   // node2.retrieveFile('example.txt.crypt', 1237, '127.0.0.1')
