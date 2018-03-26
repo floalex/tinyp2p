@@ -96,6 +96,7 @@ class BatNode {
     if (distinctIdx < shardsOfManifest.length) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath))
       let copiesOfCurrentShard = manifest.chunks[shardsOfManifest[distinctIdx]]
+  
       this.getClosestBatNodeToShard(copiesOfCurrentShard[copyIdx],  (batNode) => {
         this.sendShardToNode(batNode, copiesOfCurrentShard[copyIdx], copiesOfCurrentShard, copyIdx, shardsOfManifest[distinctIdx], distinctIdx, manifestPath)
       });
