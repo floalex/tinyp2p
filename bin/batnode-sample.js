@@ -19,11 +19,10 @@ bat_sample
   .parse(process.argv);
 
 const cliNode = new BatNode();
+let client = cliNode.connect(1800, 'localhost');
 
-if (bat_sample.upload) {
-  console.log(chalk.yellow('sample node3 uploads files to sample node1/node2'));
-  
-  const client = cliNode.connect(1800, 'localhost');
+function sendUploadMessage() {
+  client = cliNode.connect(1800, 'localhost');
   
   let message = {
     messageType: "CLI_UPLOAD_FILE",
@@ -31,15 +30,40 @@ if (bat_sample.upload) {
   };
         
   client.write(JSON.stringify(message));
+}
+
+function sendDownloadMessage() {
+  client = cliNode.connect(1800, 'localhost');
+  
+  let message = {
+    messageType: "CLI_DOWNLOAD_FILE",
+    filePath: bat_sample.download,
+  };
+        
+  client.write(JSON.stringify(message));
+}
+
+if (bat_sample.upload) {
+  console.log(chalk.yellow('You can only upload one file at a time'));
+  
+  if (!fs.existsSync(bat_sample.upload)) {
+    console.log(chalk.red('You entered an invalid path, please press ^C and try again'));   
+  } else {
+    console.log(chalk.yellow('sample node3 uploads files to sample node1/node2'));
+    sendUploadMessage();
+  }
 
 } else if (bat_sample.download) {
   console.log(chalk.yellow('sample node3 downloads files from sample node1/node2'));
 
-  // retrieve file from nodes
-  // node3.retrieveFile(bat_sample.download);
+  sendDownloadMessage();
 
 } else {  
   console.log(chalk.bold.magenta("Hello, welcome to kad-bat demo!"));
-  console.log("Please make sure you have started the server");
+  console.log(chalk.bold.magenta("Please make sure you have started the server"));
 }
+
+
+
+
 
