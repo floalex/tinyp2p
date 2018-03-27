@@ -66,7 +66,7 @@ if (bat_sample.upload) {
 
 } else {  
   console.log(chalk.bold.magenta("Hello, welcome to kad-bat demo!"));
-  console.log(chalk.bold.magenta("Please make sure you have started the server"));
+  console.log(chalk.bold.magenta("You would need to start the server first to use the options"));
 }
 
 
