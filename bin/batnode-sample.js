@@ -19,12 +19,11 @@ bat_sample
   .parse(process.argv);
 
 const cliNode = new BatNode();
-let client = cliNode.connect(1800, 'localhost');
+let client;
 
 function sendUploadMessage() {
-  client = cliNode.connect(1800, 'localhost');
   
-  let message = {
+  const message = {
     messageType: "CLI_UPLOAD_FILE",
     filePath: bat_sample.upload,
   };
@@ -33,9 +32,8 @@ function sendUploadMessage() {
 }
 
 function sendDownloadMessage() {
-  client = cliNode.connect(1800, 'localhost');
   
-  let message = {
+  const message = {
     messageType: "CLI_DOWNLOAD_FILE",
     filePath: bat_sample.download,
   };
@@ -44,32 +42,29 @@ function sendDownloadMessage() {
 }
 
 if (bat_sample.upload) {
+  client = cliNode.connect(1800, 'localhost');
+
   console.log(chalk.yellow('You can only upload one file at a time'));
   
   if (!fs.existsSync(bat_sample.upload)) {
-    console.log(chalk.red('You entered an invalid file path, please press ^C and try again'));   
+    console.log(chalk.red('You entered an invalid file path, please enter a valid file and try again'));   
   } else {
     console.log(chalk.yellow('sample node3 uploads files to sample node1/node2'));
     sendUploadMessage();
   }
 
 } else if (bat_sample.download) {
+  client = cliNode.connect(1800, 'localhost');
+  
   console.log(chalk.yellow('You can only download one file at a time'));
   
   if (!fs.existsSync(bat_sample.download)) {
-    console.log(chalk.red('You entered an invalid manifest path, please press ^C and try again'));   
+    console.log(chalk.red('You entered an invalid manifest path, please enter a valid file and try again'));   
   } else {
     console.log(chalk.yellow('sample node3 downloads files from sample node1/node2'));
     sendDownloadMessage();
   }
-
-
-} else {  
-  console.log(chalk.bold.magenta("Hello, welcome to kad-bat demo!"));
-  console.log(chalk.bold.magenta("You would need to start the server first to use the options"));
+} else {
+  console.log(chalk.bold.magenta("Welcome to Batchain demo"));
+  console.log(chalk.bold.magenta("Please make sure you have started the server"));
 }
-
-
-
-
-

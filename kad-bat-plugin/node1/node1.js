@@ -16,9 +16,9 @@ const kadnode1 = new kad.KademliaNode({
     });
     
     
-    kadnode1.identity = seed[0]
+    kadnode1.identity = seed[0];
+    kadnode1.plugin(kad_bat);
     kadnode1.listen(1338)
-    //kadnode1.plugin(kad_bat)
     
     const batnode1 = new BatNode(kadnode1) // create batnode
     kadnode1.batNode = batnode1 // tell kadnode who its batnode is
@@ -58,6 +58,8 @@ const kadnode1 = new kad.KademliaNode({
     
     batnode1.createServer(1756, '127.0.0.1', nodeConnectionCallback)
     console.log("connected to: ", kadnode1.batNode.address);
+    
+    
 // exports.clinode1 = (function() {
 //   const init = () => {
 //     const kadnode1 = new kad.KademliaNode({
