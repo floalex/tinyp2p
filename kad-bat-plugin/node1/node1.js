@@ -7,6 +7,7 @@ const BatNode = require('../batnode.js').BatNode;
 const kad_bat = require('../kadence_plugin').kad_bat;
 const seed = require('../../constants').SEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
+const JSONStream = require('JSONStream');
 
 // Create first node... Will act as a seed node
 
@@ -28,13 +29,21 @@ const kadnode1 = new kad.KademliaNode({
     
     
   const nodeConnectionCallback = (serverConnection) => {
-      serverConnection.on('end', () => {
+    const stream = JSONStream.parse();
+    serverConnection.pipe(stream);
+    
+      stream.on('end', () => {
         console.log('end')
       })
       
-      serverConnection.on('data', (receivedData, error) => {
-       receivedData = JSON.parse(receivedData)
-       console.log("received data: ", receivedData)    
+      // http.request(options, function(res) {
+      //   var stream = JSONStream.parse('*')
+      //   res.pipe(stream)
+      //   stream.on('data', console.log.bind(console, 'an item'))
+      // })
+    
+    stream.on('data', (receivedData, error) => {
+        // receivedData = JSON.parse(receivedData)
     
       if (receivedData.messageType === "RETRIEVE_FILE") {
         batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
