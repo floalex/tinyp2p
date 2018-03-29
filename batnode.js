@@ -174,8 +174,7 @@ class BatNode {
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
    let client = this.connect(hostBatNode.port, hostBatNode.host, () => {
      console.log('connected to host batnode');
-   });
-   
+     
     let message = {
       messageType: 'RETRIEVE_FILE',
       fileName: shardId
@@ -189,12 +188,13 @@ class BatNode {
       } else {
         fileUtils.assembleShards(fileName, distinctShards)
       }
-   
+    });
 
     client.write(JSON.stringify(message), () => {
       console.log('retrieve data from server!')
     });
-   })
+   });
+   
   }
 
   getHostNode(shardId, callback){
