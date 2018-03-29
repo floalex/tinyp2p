@@ -5,7 +5,8 @@ const encoding = require('encoding-down');
 const kad = require('@kadenceproject/kadence');
 const BatNode = require('../batnode.js').BatNode;
 const kad_bat = require('../kadence_plugin').kad_bat;
-const seed = require('../../constants').SEED_NODE
+const seed = require('../../constants').SEED_NODE;
+const JSONStream = require('JSONStream');
 
 // Create a third batnode kadnode pair
 
@@ -32,9 +33,14 @@ kadnode3.join(seed, () => {
 
 const nodeCLIConnectionCallback = (serverConnection) => {
 
-  serverConnection.on('data', (data) => {
-    let receivedData = JSON.parse(data);
+  // serverConnection.on('data', (data) => {
+  //   let receivedData = JSON.parse(data);
+  
+  const stream = JSONStream.parse();
+    serverConnection.pipe(stream);
     
+    stream.on('data', (receivedData, error) => {
+      
     if (receivedData.messageType === "CLI_UPLOAD_FILE") {
       let filePath = receivedData.filePath;
 
@@ -42,7 +48,7 @@ const nodeCLIConnectionCallback = (serverConnection) => {
       batnode3.kadenceNode;
     } else if (receivedData.messageType === "CLI_DOWNLOAD_FILE") {
       let filePath = receivedData.filePath;
-
+      console.log("downloadfile: ", filePath);
       batnode3.retrieveFile(filePath);
       batnode3.kadenceNode;
     } else if (receivedData.messageType === "CLI_AUDIT_FILE") {

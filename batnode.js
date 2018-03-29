@@ -85,6 +85,7 @@ class BatNode {
   uploadFile(filePath, distinctIdx = 0) {
     // Encrypt file and generate manifest
     const fileName = path.parse(filePath).base
+    console.log("upload file name: ", fileName);
     fileUtils.processUpload(filePath, (manifestPath) => {
      this.distributeCopies(distinctIdx, manifestPath)
     });
@@ -136,6 +137,7 @@ class BatNode {
     let manifest = fileUtils.loadManifest(manifestFilePath);
     const distinctShards = fileUtils.getArrayOfShards(manifestFilePath)
     const fileName = manifest.fileName;
+    console.log("retrieveFile name: ", fileName);
     this.retrieveSingleCopy(distinctShards, manifest.chunks, fileName, manifestFilePath, distinctIdx, copyIdx)
   }
 
@@ -145,7 +147,8 @@ class BatNode {
     } else {
       let currentCopies = allShards[distinctShards[distinctIdx]] // array of copy Ids for current shard
       let currentCopy = currentCopies[copyIdx]
-
+      
+      
       const afterHostNodeIsFound = (hostBatNode) => {
         if (hostBatNode[0] === 'false'){
           this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx, copyIdx + 1)
@@ -156,6 +159,7 @@ class BatNode {
             fileName,
             distinctIdx,
           }
+    
           this.issueRetrieveShardRequest(currentCopy, hostBatNode, retrieveOptions, () => {
             this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx + 1, copyIdx)
           })
@@ -169,20 +173,27 @@ class BatNode {
   issueRetrieveShardRequest(shardId, hostBatNode, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
    let client = this.connect(hostBatNode.port, hostBatNode.host, () => {
+     console.log('connected to host batnode');
+   });
+   
     let message = {
       messageType: 'RETRIEVE_FILE',
       fileName: shardId
-    }
+    };
 
     client.on('data', (data) => {
+      console.log('get data from server')
       fs.writeFileSync(`./shards/${saveShardAs}`, data, 'utf8')
       if (distinctIdx < distinctShards.length - 1){
         finishCallback()
       } else {
         fileUtils.assembleShards(fileName, distinctShards)
       }
-    })
-    client.write(JSON.stringify(message))
+   
+
+    client.write(JSON.stringify(message), () => {
+      console.log('retrieve data from server!')
+    });
    })
   }
 

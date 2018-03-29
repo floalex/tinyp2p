@@ -30,21 +30,20 @@ kadnode2 = new kad.KademliaNode({
       const stream = JSONStream.parse();
       serverConnection.pipe(stream);
     
-      stream.on('end', () => {
-        console.log('end')
-      })
+      stream.on('data', (receivedData, error) => {
+    // serverConnection.on('data', (receivedData, error) => {
       
-     stream.on('data', (receivedData, error) => {
-    
-    
+        // console.log("node 2 receivedData: ", receivedData); 
         if (receivedData.messageType === "RETRIEVE_FILE") {
+          
           batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-           serverConnection.write(data)
+            serverConnection.write(data);
           })
         } else if (receivedData.messageType === "STORE_FILE"){
           let fileName = receivedData.fileName
+          // console.log("fileName: ", fileName);
           batnode2.kadenceNode.iterativeStore(fileName, [batnode2.kadenceNode.identity.toString(), batnode2.kadenceNode.contact], (err, stored) => {
-        console.log('nodes who stored this value: ', stored)
+        // console.log('nodes who stored this value: ', stored)
         let fileContent = new Buffer(receivedData.fileContent)
         batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
           if (err) {
@@ -70,53 +69,44 @@ kadnode2 = new kad.KademliaNode({
     
     kadnode2.join(seed)
 
-// exports.clinode2 = (function() {
-//   const init = () => {
-//     kadnode2 = new kad.KademliaNode({
-//       transport: new kad.HTTPTransport(),
-//       storage: levelup(encoding(leveldown('./dbb'))),
-//       contact: { hostname: 'localhost', port: 9000 }
-//     })
-    
-//     // Set up
-//     kadnode2.listen(9000)
-//     const batnode2 = new BatNode(kadnode2)
-//     kadnode2.batNode = batnode2
-    
-    
-//     const nodeConnectionCallback = (serverConnection) => {
-//       serverConnection.on('end', () => {
-//         console.log('end')
+// const nodeConnectionCallback = (serverConnection) => {
+//   serverConnection.on('end', () => {
+//     console.log('end')
+//   })
+//   serverConnection.on('data', (receivedData, error) => {
+//   receivedData = JSON.parse(receivedData)
+//   // console.log("received data: ", receivedData)
+
+
+//     if (receivedData.messageType === "RETRIEVE_FILE") {
+//       batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+//       serverConnection.write(data)
 //       })
-//       serverConnection.on('data', (receivedData, error) => {
-//       receivedData = JSON.parse(receivedData)
-//       console.log("received data: ", receivedData)
-    
-    
-//         if (receivedData.messageType === "RETRIEVE_FILE") {
-//           batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-//           serverConnection.write(data)
-//           })
-//         } else if (receivedData.messageType === "STORE_FILE"){
-//           let fileName = receivedData.fileName
-//           let fileContent = new Buffer(receivedData.fileContent)
-//           batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
-//             if (err) {
-//               throw err;
-//             }
-//             serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
-//           })
-//         }
+//     } else if (receivedData.messageType === "STORE_FILE"){
+//       let fileName = receivedData.fileName
+//       batnode2.kadenceNode.iterativeStore(fileName, [batnode2.kadenceNode.identity.toString(), batnode2.kadenceNode.contact], (err, stored) => {
+//         console.log('nodes who stored this value: ', stored)
+//         let fileContent = new Buffer(receivedData.fileContent)
+//         batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
+//           if (err) {
+//             throw err;
+//           }
+//           serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
+//         })
 //       })
+//     } else if (receivedData.messageType === "AUDIT_FILE") {
+//       batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+//         const shardSha1 = fileUtils.sha1HashData(data);
+//         console.log("shardSha1: ", shardSha1);
+//         serverConnection.write(shardSha1);
+//       });
 //     }
-//     batnode2.createServer(1900, '127.0.0.1', nodeConnectionCallback)
-    
-    
-//     // Join:
-    
-//     kadnode2.join(seed)
-//   }   
-//   return {
-//     init
-//   }
-// })();
+//   })
+// }
+
+// batnode2.createServer(1900, '127.0.0.1', nodeConnectionCallback)
+
+
+// // Join:
+
+// kadnode2.join(seed)
