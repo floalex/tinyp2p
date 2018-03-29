@@ -33,14 +33,9 @@ kadnode3.join(seed, () => {
 
 const nodeCLIConnectionCallback = (serverConnection) => {
 
-  // serverConnection.on('data', (data) => {
-  //   let receivedData = JSON.parse(data);
+  serverConnection.on('data', (data) => {
+    let receivedData = JSON.parse(data);
   
-  const stream = JSONStream.parse();
-    serverConnection.pipe(stream);
-    
-    stream.on('data', (receivedData, error) => {
-      
     if (receivedData.messageType === "CLI_UPLOAD_FILE") {
       let filePath = receivedData.filePath;
 
@@ -48,13 +43,13 @@ const nodeCLIConnectionCallback = (serverConnection) => {
       batnode3.kadenceNode;
     } else if (receivedData.messageType === "CLI_DOWNLOAD_FILE") {
       let filePath = receivedData.filePath;
-      console.log("downloadfile: ", filePath);
+      // console.log("downloadfile: ", filePath);
       batnode3.retrieveFile(filePath);
       batnode3.kadenceNode;
     } else if (receivedData.messageType === "CLI_AUDIT_FILE") {
       let filePath = receivedData.filePath;
       
-      console.log("received path: ", filePath); 
+      // console.log("received path: ", filePath); 
       batnode3.auditFile(filePath);
       batnode3.kadenceNode;
     }
