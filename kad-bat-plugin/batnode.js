@@ -192,7 +192,6 @@ class BatNode {
   // console.log("options distinctIdx: ", distinctIdx);
    const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
     // console.log('connected to host batnode: ?', hostBatNode);
-   });
    
     const message = {
       messageType: 'RETRIEVE_FILE',
@@ -200,26 +199,26 @@ class BatNode {
     };
     
     const fileDestination = './shards/' + saveShardAs;
-    let writeStream = fs.createWriteStream(fileDestination);
+    let shardStream = fs.createWriteStream(fileDestination);
 
     // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     client.once('data', (data) => {
-      writeStream.write(data);  
-      
+      shardStream.write(data);  
+      client.pipe(shardStream);
       
       if (distinctIdx < distinctShards.length - 1){
         finishCallback()
       } else {
-        fileUtils.assembleShards(fileName, distinctShards)
+        setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, 2000);
       }
     
-      client.pipe(writeStream);
     });
 
     client.write(JSON.stringify(message), () => {
       console.log("retriving distinctIdx: ", distinctIdx);
       // console.log('retrieve data from server!')
     });
+   });
    
   }
 

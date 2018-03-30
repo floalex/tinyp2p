@@ -4,7 +4,7 @@ const zlib = require('zlib');
 const algorithm = 'aes-256-cbc';
 const path = require('path');
 const dotenv = require('dotenv');
-
+const fs = require('fs');
 
 exports.PERSONAL_DIR = 'personal'
 exports.HOSTED_DIR = 'hosted'
@@ -50,7 +50,7 @@ exports.fileSystem = (function(){
     const decrypt = crypto.createDecipher(algorithm, privateKey)
     const unzip = zlib.createGunzip()
     const writeStream = fileSystem.createWriteStream(tempPath)
-    // encryptedFileData.pipe(decrypt).pipe(unzip).pipe(writeStream);
+
     encryptedFileData.pipe(decrypt).pipe(unzip).pipe(writeStream).on('close', (error) => {
       if (error) { console.log(error) };
       console.log("File has been downloaded and decrypted successfully");
@@ -144,9 +144,12 @@ exports.fileSystem = (function(){
 
     filePaths.forEach(path => {
       let fileData = fileSystem.readFileSync(path)
-      writeStream.write( fileData)
+      writeStream.write(fileData, function() {
+        console.log("filePath: " + path + " size " + fs.statSync(path).size);
+      });
     })
     writeStream.end(() => {
+      console.log("final filePath: " + fileDestination + " size " + fs.statSync(fileDestination).size);
       decrypt(fileDestination)
     })
   }
