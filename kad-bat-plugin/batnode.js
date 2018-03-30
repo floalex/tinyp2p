@@ -202,18 +202,18 @@ class BatNode {
     const fileDestination = './shards/' + saveShardAs;
     let writeStream = fs.createWriteStream(fileDestination);
 
-    client.on('data', (data) => {
-      // fs.writeFileSync(`./shards/${saveShardAs}`, data, 'utf8')
-      writeStream.write(data);
-
-      // 
+    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
+    client.once('data', (data) => {
+      writeStream.write(data);  
+      
+      
       if (distinctIdx < distinctShards.length - 1){
         finishCallback()
       } else {
         fileUtils.assembleShards(fileName, distinctShards)
       }
-      
-  
+    
+      client.pipe(writeStream);
     });
 
     client.write(JSON.stringify(message), () => {

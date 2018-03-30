@@ -31,9 +31,8 @@ kadnode2 = new kad.KademliaNode({
       serverConnection.pipe(stream);
     
       stream.on('data', (receivedData, error) => {
-    // serverConnection.on('data', (receivedData, error) => {
       
-        // console.log("node 2 receivedData: ", receivedData); 
+        console.log("node 2 receivedData: ", receivedData); 
         if (receivedData.messageType === "RETRIEVE_FILE") {
           
           batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
