@@ -5,6 +5,7 @@ const PERSONAL_DIR = require('../utils/file').PERSONAL_DIR;
 const HOSTED_DIR = require('../utils/file').HOSTED_DIR;
 const publicIp = require('public-ip');
 const fs = require('fs');
+const JSONStream = require('JSONStream');
 
 class BatNode {
   constructor(kadenceNode = {}) {
@@ -97,7 +98,8 @@ class BatNode {
     if (distinctIdx < shardsOfManifest.length) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath))
       let copiesOfCurrentShard = manifest.chunks[shardsOfManifest[distinctIdx]]
-
+      
+      console.log("copiesOfCurrentShard: ", copiesOfCurrentShard);
       this.getClosestBatNodeToShard(copiesOfCurrentShard[copyIdx],  (batNode) => {
         this.sendShardToNode(batNode, copiesOfCurrentShard[copyIdx], copiesOfCurrentShard, copyIdx, shardsOfManifest[distinctIdx], distinctIdx, manifestPath)
       });
@@ -108,14 +110,20 @@ class BatNode {
     this.kadenceNode.iterativeFindNode(shardId, (err, res) => {
       let i = 0
       let targetKadNode = res[0]; // res is an array of these tuples: [id, {hostname, port}]
-      while (targetKadNode[1].port === this.kadenceNode.contact.port) { // change to identity and re-test
-      // while (targetKadNode[1].hostname === this.kadenceNode.contact.hostname) { // change to identity and re-test
+      while (targetKadNode[1].hostname === this.kadenceNode.contact.hostname &&
+            targetKadNode[1].port === this.kadenceNode.contact.port) { // change to identity and re-test
         i += 1
         targetKadNode = res[i]
       }
 
-      this.kadenceNode.getOtherBatNodeContact(targetKadNode, (err, res) => { // res is contact info of batnode {port, host}
-        callback(res)
+      this.kadenceNode.ping(targetKadNode, (error) => { // Checks whether target kad node is alive
+        if (error) {
+          this.getClosestBatNodeToShard(shardId, callback) // if it's offline, re-calls method. This works because sendign RPCs to disconnected nodes
+        } else {                                          // will automatically remove the dead node's contact info from sending node's routing table
+          this.kadenceNode.getOtherBatNodeContact(targetKadNode, (error2, result) => { // res is contact info of batnode {port, host}
+            callback(result)
+          })
+        }
       })
     })
   }
@@ -144,6 +152,7 @@ class BatNode {
   }
 
   retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx, copyIdx){
+    console.log("distinctIdx before afterHostNode: ", distinctIdx);
     if (copyIdx && copyIdx > 2) {
       console.log('Host could not be found with the correct shard')
     } else {
@@ -151,6 +160,7 @@ class BatNode {
       let currentCopy = currentCopies[copyIdx]
             
       const afterHostNodeIsFound = (hostBatNode) => {
+        console.log("hostBatNode: ", hostBatNode);
         if (hostBatNode[0] === 'false'){
           this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx, copyIdx + 1)
         } else {
@@ -179,39 +189,48 @@ class BatNode {
 
   issueRetrieveShardRequest(shardId, hostBatNode, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
-   let client = this.connect(hostBatNode.port, hostBatNode.host, () => {
+  // console.log("options distinctIdx: ", distinctIdx);
+   const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
     // console.log('connected to host batnode: ?', hostBatNode);
    });
    
-    let message = {
+    const message = {
       messageType: 'RETRIEVE_FILE',
       fileName: shardId
     };
+    
+    const fileDestination = './shards/' + saveShardAs;
+    let writeStream = fs.createWriteStream(fileDestination);
 
     client.on('data', (data) => {
-      // console.log('get data from server')
-      fs.writeFileSync(`./shards/${saveShardAs}`, data, 'utf8')
+      // fs.writeFileSync(`./shards/${saveShardAs}`, data, 'utf8')
+      writeStream.write(data);
+
+      // 
       if (distinctIdx < distinctShards.length - 1){
-        console.log("retriving distinctIdx: ", distinctIdx);
         finishCallback()
       } else {
         fileUtils.assembleShards(fileName, distinctShards)
       }
+      
+  
     });
 
     client.write(JSON.stringify(message), () => {
+      console.log("retriving distinctIdx: ", distinctIdx);
       // console.log('retrieve data from server!')
     });
-  
    
   }
 
   getHostNode(shardId, callback){
-    console.log("hostNode shard: ", shardId);
     this.kadenceNode.iterativeFindValue(shardId, (err, value, responder) => {
+      // console.log("hostNode shard: ", shardId);
       let kadNodeTarget = value.value;
+      console.log("kadNodeTarget: ", kadNodeTarget);
       this.kadenceNode.getOtherBatNodeContact(kadNodeTarget, (err, batNode) => {
         // console.log('kadNodeTarget: ', kadNodeTarget);
+        console.log('getHostNode batnode: ', batNode);
         callback(batNode)
       })
     })
