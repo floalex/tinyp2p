@@ -148,10 +148,10 @@ class BatNode {
     const distinctShards = fileUtils.getArrayOfShards(manifestFilePath)
     const fileName = manifest.fileName;
     console.log("retrieveFile name: ", fileName);
-    this.retrieveSingleCopy(distinctShards, manifest.chunks, fileName, manifestFilePath, distinctIdx, copyIdx)
+    this.retrieveSingleCopy(distinctShards, manifest.chunks, fileName, manifest, distinctIdx, copyIdx)
   }
 
-  retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx, copyIdx){
+  retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx){
     console.log("distinctIdx before afterHostNode: ", distinctIdx);
     if (copyIdx && copyIdx > 2) {
       console.log('Host could not be found with the correct shard')
@@ -162,7 +162,7 @@ class BatNode {
       const afterHostNodeIsFound = (hostBatNode) => {
         console.log("hostBatNode: ", hostBatNode);
         if (hostBatNode[0] === 'false'){
-          this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx, copyIdx + 1)
+          this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx + 1)
         } else {
           let retrieveOptions = {
             saveShardAs: distinctShards[distinctIdx],
@@ -174,8 +174,8 @@ class BatNode {
           console.log("distinctIdx in afterHostNode: ", distinctIdx);
           
           // console.log("afterHostNode: ", hostBatNode);
-          this.issueRetrieveShardRequest(currentCopy, hostBatNode, retrieveOptions, () => {
-            this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestFilePath, distinctIdx + 1, copyIdx)
+          this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
+            this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
           })
         }
       }
@@ -187,9 +187,12 @@ class BatNode {
     }
   }
 
-  issueRetrieveShardRequest(shardId, hostBatNode, options, finishCallback){
+  issueRetrieveShardRequest(shardId, hostBatNode, manifest, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
-  // console.log("options distinctIdx: ", distinctIdx);
+   
+   const completeFileSize = manifest.fileSize;
+   let chunkLengh = 0;
+    
    const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
     // console.log('connected to host batnode: ?', hostBatNode);
    
@@ -198,26 +201,61 @@ class BatNode {
       fileName: shardId
     };
     
-    const fileDestination = './shards/' + saveShardAs;
-    let shardStream = fs.createWriteStream(fileDestination);
-
-    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
-    client.once('data', (data) => {
-      shardStream.write(data);  
-      client.pipe(shardStream);
-      
-      if (distinctIdx < distinctShards.length - 1){
-        finishCallback()
-      } else {
-        setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, 2000);
-      }
-    
-    });
-
     client.write(JSON.stringify(message), () => {
       console.log("retriving distinctIdx: ", distinctIdx);
       // console.log('retrieve data from server!')
     });
+    
+    const fileDestination = './shards/' + saveShardAs;
+    let shardStream = fs.createWriteStream(fileDestination);
+    
+    // https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
+    // async function combineShards() {
+    //   await writeChunkToDisk();
+    //   fileUtils.assembleShards(fileName, distinctShards);
+    // }
+    
+    // const writeChunkToDisk = () => {
+    //   new Promise((resolve) => {
+    //     client.once('data', (data) => {
+    //       shardStream.write(data);
+    //       client.pipe(shardStream);
+    //       if (distinctIdx < distinctShards.length - 1){
+    //         finishCallback()
+    //       } else {
+    //         resolve();
+    //       }
+    //     });
+    //   });
+    // }
+    
+    // combineShards();
+    
+    
+    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
+    
+    let waitTime = Math.floor(completeFileSize/20000);  // set the amount slightly above 16kb ~ 16384 (the default high watermark for read/write streams)
+    console.log("waiting time in ms: ", waitTime);
+    
+    client.once('data', (data) => {
+      
+      shardStream.write(data);
+     
+      // read all file and pipe it (write it) to the fileDestination 
+      client.pipe(shardStream);
+      
+      if ((distinctIdx >= distinctShards.length - 1)){
+        // fileUtils.assembleShards(fileName, distinctShards);
+        setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, waitTime);
+      } else {          
+        finishCallback();
+      } 
+      
+      // still works by putting down here 
+      // client.pipe(shardStream);
+    
+    });
+
    });
    
   }
