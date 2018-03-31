@@ -8,6 +8,7 @@ const kad_bat = require('../kadence_plugin').kad_bat;
 const seed = require('../../constants').SEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
+const stellar_account = require('../kadence_plugin').stellar_account;
 //console.log(seed)
 
 // Create second batnode kadnode pair
@@ -21,6 +22,7 @@ kadnode2 = new kad.KademliaNode({
     // Set up
     kadnode2.plugin(kad_bat)
     kadnode2.listen(9000)
+    kadnode2.plugin(stellar_account);
     const batnode2 = new BatNode(kadnode2)
     kadnode2.batNode = batnode2
     

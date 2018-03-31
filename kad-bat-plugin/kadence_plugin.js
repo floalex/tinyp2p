@@ -3,7 +3,12 @@ module.exports.kad_bat = function(node) {
 
   node.use('BATNODE', (req, res, next) => {
     let contact = node.batNode.address
-    res.send(contact);
+    if (node.batNode.server){
+      res.send(contact);
+    } else {
+      res.send(['false'])
+    }
+
   });
 
 
@@ -13,3 +18,17 @@ module.exports.kad_bat = function(node) {
   };
 
 };
+
+module.exports.stellar_account = function(node) {
+  node.use('STELLAR', (req, res, next) => {
+    let stellarId = node.batNode.stellarAccountId;
+    console.log('my stellar id is: ', stellarId)
+    res.send(`${stellarId}`)
+  })
+
+  node.getOtherNodeStellarAccount = function(targetNode, callback) {
+    console.log('my stellar id is: ', node.batNode.stellarAccountId)
+    console.log("requesting this node's stellar ID: ", targetNode)
+    node.send('STELLAR', [node.batNode.stellarAccountId], targetNode, callback)
+  }
+}

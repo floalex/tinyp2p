@@ -6,11 +6,42 @@ const HOSTED_DIR = require('../utils/file').HOSTED_DIR;
 const publicIp = require('public-ip');
 const fs = require('fs');
 const JSONStream = require('JSONStream');
+const stellar = require('../utils/stellar').stellar;
+
 
 class BatNode {
   constructor(kadenceNode = {}) {
     this._kadenceNode = kadenceNode;
-    fileUtils.generateEnvFile()
+    
+    let stellarKeyPair = stellar.generateKeys();
+    console.log("stellar?", stellarKeyPair);
+    const envOptions = {
+      'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(),
+      'STELLAR_SECRET': stellarKeyPair.secret()
+    }
+    fileUtils.generateEnvFile(envOptions)
+
+    this._stellarAccountId = fileUtils.getStellarAccountId();
+
+    stellar.accountExists(this.stellarAccountId, (account) => {
+      console.log('account does exist')
+      account.balances.forEach((balance) =>{
+        console.log('Type:', balance.asset_type, ', Balance:', balance.balance);
+      });
+    }, (publicKey) => {
+      console.log('account does not exist, creating account...')
+      stellar.createNewAccount(publicKey)
+    })
+  }
+  
+  sendPaymentFor(destinationAccountId, onSuccessfulPayment) {
+    console.log(destinationAccountId, ' sending payment to that account')
+    let stellarSeed = fileUtils.getStellarSecretSeed();
+    let amount = "10";
+    stellar.sendPayment(destinationAccountId, stellarSeed, amount, onSuccessfulPayment)
+    // get stellar secret key
+    // calculate cost of sending shard
+    // stellar.sendPayment(destinationAccountId, secretKey, amount, onSuccessfulPayment)
   }
 
   // TCP server
@@ -24,6 +55,15 @@ class BatNode {
 
   createCLIServer(port, host, connectionCallback) {
     tcpUtils.createServer(port, host, connectionCallback);
+  }
+  
+  get stellarAccountId(){
+    return this._stellarAccountId
+  }
+
+  getStellarAccountInfo(){
+    let accountId = this.stellarAccountId;
+    stellar.getAccountInfo(accountId)
   }
 
   get server(){
@@ -70,8 +110,14 @@ class BatNode {
     client.on('data', (data) => {
       console.log('received data from server')
       if (shardIdx < shards.length - 1){
-        this.getClosestBatNodeToShard(shards[shardIdx + 1], (batNode) => {
-          this.sendShardToNode(batNode, shards[shardIdx + 1], shards, shardIdx + 1, storedShardName, distinctIdx, manifestPath)
+        this.getClosestBatNodeToShard(shards[shardIdx + 1], (batNode, kadNode) => {
+          this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
+            console.log("The target node returned this stellard id: ", accountId)
+            this.sendPaymentFor(accountId, (paymentResult) => {
+              console.log(paymentResult, " result of payment")
+              this.sendShardToNode(batNode, shards[shardIdx + 1], shards, shardIdx + 1, storedShardName, distinctIdx, manifestPath)
+            })
+          })
         })
       } else {
         this.distributeCopies(distinctIdx + 1, manifestPath)
@@ -100,8 +146,14 @@ class BatNode {
       let copiesOfCurrentShard = manifest.chunks[shardsOfManifest[distinctIdx]]
       
       console.log("copiesOfCurrentShard: ", copiesOfCurrentShard);
-      this.getClosestBatNodeToShard(copiesOfCurrentShard[copyIdx],  (batNode) => {
-        this.sendShardToNode(batNode, copiesOfCurrentShard[copyIdx], copiesOfCurrentShard, copyIdx, shardsOfManifest[distinctIdx], distinctIdx, manifestPath)
+      this.getClosestBatNodeToShard(copiesOfCurrentShard[copyIdx],  (batNode, kadNode) => {
+        this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
+          console.log("The target node returned this stellard id: ", accountId)
+          this.sendPaymentFor(accountId, (paymentResult) => {
+            console.log(paymentResult, " result of payment")
+            this.sendShardToNode(batNode, copiesOfCurrentShard[copyIdx], copiesOfCurrentShard, copyIdx, shardsOfManifest[distinctIdx], distinctIdx, manifestPath)
+          })
+        })
       });
     }
   }
@@ -159,29 +211,30 @@ class BatNode {
       let currentCopies = allShards[distinctShards[distinctIdx]] // array of copy Ids for current shard
       let currentCopy = currentCopies[copyIdx]
             
-      const afterHostNodeIsFound = (hostBatNode) => {
-        console.log("hostBatNode: ", hostBatNode);
+      // need kadnode for finding stellar account
+      const afterHostNodeIsFound = (hostBatNode, kadNode) => {
         if (hostBatNode[0] === 'false'){
           this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx + 1)
         } else {
-          let retrieveOptions = {
-            saveShardAs: distinctShards[distinctIdx],
-            distinctShards,
-            fileName,
-            distinctIdx,
-          }
+          this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
+            let retrieveOptions = {
+              saveShardAs: distinctShards[distinctIdx],
+              distinctShards,
+              fileName,
+              distinctIdx,
+            }
           
-          console.log("distinctIdx in afterHostNode: ", distinctIdx);
+            console.log("distinctIdx in afterHostNode: ", distinctIdx);
           
-          // console.log("afterHostNode: ", hostBatNode);
-          this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
-            this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
-          })
+            // console.log("afterHostNode: ", hostBatNode);
+            this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
+              this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
+            })
+          });
         }
       }
       
       console.log("currentCopy: ", currentCopy);
-      console.log("distinctIdx: ", distinctIdx);
       
       this.getHostNode(currentCopy, afterHostNodeIsFound)
     }
@@ -234,7 +287,7 @@ class BatNode {
     
     // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     
-    let waitTime = Math.floor(completeFileSize/20000);  // set the amount slightly above 16kb ~ 16384 (the default high watermark for read/write streams)
+    const waitTime = Math.floor(completeFileSize/16000);  // set the amount slightly below 16kb ~ 16384 (the default high watermark for read/write streams)
     console.log("waiting time in ms: ", waitTime);
     
     client.once('data', (data) => {
@@ -244,8 +297,8 @@ class BatNode {
       // read all file and pipe it (write it) to the fileDestination 
       client.pipe(shardStream);
       
-      if ((distinctIdx >= distinctShards.length - 1)){
-        // fileUtils.assembleShards(fileName, distinctShards);
+      if (distinctIdx >= distinctShards.length - 1) {
+        // fileUtils.assembleShards(fileName, distinctShards);can't use end here since we still listen to client's data
         setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, waitTime);
       } else {          
         finishCallback();
@@ -264,11 +317,12 @@ class BatNode {
     this.kadenceNode.iterativeFindValue(shardId, (err, value, responder) => {
       // console.log("hostNode shard: ", shardId);
       let kadNodeTarget = value.value;
-      console.log("kadNodeTarget: ", kadNodeTarget);
+      
+      // pass kadNode to get the stellar account in callback
       this.kadenceNode.getOtherBatNodeContact(kadNodeTarget, (err, batNode) => {
         // console.log('kadNodeTarget: ', kadNodeTarget);
         console.log('getHostNode batnode: ', batNode);
-        callback(batNode)
+        callback(batNode, kadNodeTarget)
       })
     })
   }
