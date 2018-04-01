@@ -7,29 +7,19 @@ const publicIp = require('public-ip');
 const fs = require('fs');
 const JSONStream = require('JSONStream');
 const stellar = require('../utils/stellar').stellar;
-
+const dotenv = require('dotenv');
 
 class BatNode {
   constructor(kadenceNode = {}) {
     this._kadenceNode = kadenceNode;
     
-    if (!fs.existsSync('./.env')) {
+    if (!fs.existsSync('./.env') || !dotenv.config().parsed.STELLAR_ACCOUNT_ID || !dotenv.config().parsed.STELLAR_SECRET) {
       let stellarKeyPair = stellar.generateKeys()
       fileUtils.generateEnvFile({
         'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(), 
         'STELLAR_SECRET': stellarKeyPair.secret()
       })
     }
-    
-    // if (!fileUtils.hasStellarEnvVars()) {
-    //   let stellarKeyPair = stellar.generateKeys()
-    //   fileUtils.generateEnvFile({
-    //     'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(),
-    //     'STELLAR_SECRET': stellarKeyPair.secret()
-    //   })
-    // } else {
-    //   fileUtils.generateEnvFile()
-    // }
     
     this._stellarAccountId = fileUtils.getStellarAccountId();
     console.log("my stellar Id: ", this.stellarAccountId);
@@ -268,6 +258,9 @@ class BatNode {
       messageType: 'RETRIEVE_FILE',
       fileName: shardId
     };
+    
+    // increase the listener limit to prevent Possible EventEmitter memory leak detected
+    process.setMaxListeners(100);
     
     client.write(JSON.stringify(message), () => {
       console.log("retriving distinctIdx: ", distinctIdx);
