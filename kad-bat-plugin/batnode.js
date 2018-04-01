@@ -13,15 +13,26 @@ class BatNode {
   constructor(kadenceNode = {}) {
     this._kadenceNode = kadenceNode;
     
-    let stellarKeyPair = stellar.generateKeys();
-    console.log("stellar?", stellarKeyPair);
-    const envOptions = {
-      'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(),
-      'STELLAR_SECRET': stellarKeyPair.secret()
+    if (!fs.existsSync('./.env')) {
+      let stellarKeyPair = stellar.generateKeys()
+      fileUtils.generateEnvFile({
+        'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(), 
+        'STELLAR_SECRET': stellarKeyPair.secret()
+      })
     }
-    fileUtils.generateEnvFile(envOptions)
-
+    
+    // if (!fileUtils.hasStellarEnvVars()) {
+    //   let stellarKeyPair = stellar.generateKeys()
+    //   fileUtils.generateEnvFile({
+    //     'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(),
+    //     'STELLAR_SECRET': stellarKeyPair.secret()
+    //   })
+    // } else {
+    //   fileUtils.generateEnvFile()
+    // }
+    
     this._stellarAccountId = fileUtils.getStellarAccountId();
+    console.log("my stellar Id: ", this.stellarAccountId);
 
     stellar.accountExists(this.stellarAccountId, (account) => {
       console.log('account does exist')
@@ -155,6 +166,8 @@ class BatNode {
           })
         })
       });
+    } else {
+      console.log("Finish uploading all the redudant copies");
     }
   }
 
@@ -173,7 +186,7 @@ class BatNode {
           this.getClosestBatNodeToShard(shardId, callback) // if it's offline, re-calls method. This works because sendign RPCs to disconnected nodes
         } else {                                          // will automatically remove the dead node's contact info from sending node's routing table
           this.kadenceNode.getOtherBatNodeContact(targetKadNode, (error2, result) => { // res is contact info of batnode {port, host}
-            callback(result)
+            callback(result, targetKadNode)
           })
         }
       })
@@ -217,6 +230,7 @@ class BatNode {
           this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx + 1)
         } else {
           this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
+            console.log("The target node returned this stellard id: ", accountId)
             let retrieveOptions = {
               saveShardAs: distinctShards[distinctIdx],
               distinctShards,
@@ -226,9 +240,10 @@ class BatNode {
           
             console.log("distinctIdx in afterHostNode: ", distinctIdx);
           
-            // console.log("afterHostNode: ", hostBatNode);
-            this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
-              this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
+            this.sendPaymentFor(accountId, (paymentResult) => {
+              this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
+                this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
+              })
             })
           });
         }
@@ -288,7 +303,6 @@ class BatNode {
     // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     
     const waitTime = Math.floor(completeFileSize/16000);  // set the amount slightly below 16kb ~ 16384 (the default high watermark for read/write streams)
-    console.log("waiting time in ms: ", waitTime);
     
     client.once('data', (data) => {
       
@@ -298,7 +312,8 @@ class BatNode {
       client.pipe(shardStream);
       
       if (distinctIdx >= distinctShards.length - 1) {
-        // fileUtils.assembleShards(fileName, distinctShards);can't use end here since we still listen to client's data
+        // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
+        console.log("waiting time in ms: ", waitTime);
         setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, waitTime);
       } else {          
         finishCallback();

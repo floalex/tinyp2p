@@ -26,14 +26,12 @@ exports.fileSystem = (function(){
       const privateKey = `PRIVATE_KEY=${generatePrivateKey()}\n`
       envVarsToWrite = envVarsToWrite.concat(privateKey)
     } 
-    if (!dotenv.config().parsed.STELLAR_ACCOUNT_ID || !dotenv.config().parsed.STELLAR_SECRET ){
+    if (optionalVars){
       Object.keys(optionalVars).forEach(key => {
         envVarsToWrite = envVarsToWrite.concat(`${key}=${optionalVars[key]}\n`)
       })
     }
     if (envVarsToWrite !== ''){
-      let currentEnvData = fileSystem.readFileSync('./.env');
-      envVarsToWrite = envVarsToWrite.concat(`\n${currentEnvData}`)
       fileSystem.writeFileSync('./.env', envVarsToWrite)
     }
   }
