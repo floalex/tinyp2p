@@ -13,6 +13,12 @@ class BatNode {
   constructor(kadenceNode = {}) {
     this._kadenceNode = kadenceNode;
     
+    fs.exists('./hosted', (exists) => {
+      if (!exists){
+        fs.mkdir('./hosted')
+      }
+    })
+    
     if (!fs.existsSync('./.env') || !dotenv.config().parsed.STELLAR_ACCOUNT_ID || !dotenv.config().parsed.STELLAR_SECRET) {
       let stellarKeyPair = stellar.generateKeys()
       fileUtils.generateEnvFile({
@@ -245,14 +251,29 @@ class BatNode {
     }
   }
 
+  combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
+    });
+  }
+  
+  async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
+    try {
+      console.log("waiting time in ms: ", waitTime);
+      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
+      return result;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  
   issueRetrieveShardRequest(shardId, hostBatNode, manifest, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
    
    const completeFileSize = manifest.fileSize;
-   let chunkLengh = 0;
+  // let chunkLengh = 0;
     
    const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
-    // console.log('connected to host batnode: ?', hostBatNode);
    
     const message = {
       messageType: 'RETRIEVE_FILE',
@@ -270,44 +291,26 @@ class BatNode {
     const fileDestination = './shards/' + saveShardAs;
     let shardStream = fs.createWriteStream(fileDestination);
     
-    // https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-    // async function combineShards() {
-    //   await writeChunkToDisk();
-    //   fileUtils.assembleShards(fileName, distinctShards);
-    // }
-    
-    // const writeChunkToDisk = () => {
-    //   new Promise((resolve) => {
-    //     client.once('data', (data) => {
-    //       shardStream.write(data);
-    //       client.pipe(shardStream);
-    //       if (distinctIdx < distinctShards.length - 1){
-    //         finishCallback()
-    //       } else {
-    //         resolve();
-    //       }
-    //     });
-    //   });
-    // }
-    
-    // combineShards();
-    
-    
+    // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
+
     // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     
     const waitTime = Math.floor(completeFileSize/16000);  // set the amount slightly below 16kb ~ 16384 (the default high watermark for read/write streams)
     
     client.once('data', (data) => {
       
-      shardStream.write(data);
+      shardStream.write(data, function (err) {
+        if(err){
+          throw err;
+        }
+      });
      
       // read all file and pipe it (write it) to the fileDestination 
       client.pipe(shardStream);
       
       if (distinctIdx >= distinctShards.length - 1) {
         // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
-        console.log("waiting time in ms: ", waitTime);
-        setTimeout(() => {fileUtils.assembleShards(fileName, distinctShards);}, waitTime);
+        this.asyncCallAssembleShards(waitTime, fileName, distinctShards);
       } else {          
         finishCallback();
       } 
