@@ -31,6 +31,10 @@ const kadnode1 = new kad.KademliaNode({
      
   const nodeConnectionCallback = (serverConnection) => {
     
+    serverConnection.on('end', () => {
+      console.log('end')
+    })
+    
     const stream = JSONStream.parse();
     serverConnection.pipe(stream);
     

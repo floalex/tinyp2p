@@ -251,6 +251,7 @@ class BatNode {
     }
   }
 
+  // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
   combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
     return new Promise(resolve => {
       setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
@@ -291,12 +292,9 @@ class BatNode {
     const fileDestination = './shards/' + saveShardAs;
     let shardStream = fs.createWriteStream(fileDestination);
     
-    // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-
-    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
-    
     const waitTime = Math.floor(completeFileSize/16000);  // set the amount slightly below 16kb ~ 16384 (the default high watermark for read/write streams)
     
+    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     client.once('data', (data) => {
       
       shardStream.write(data, function (err) {
