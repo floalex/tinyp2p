@@ -10,6 +10,7 @@ const PERSONAL_DIR = require('../utils/file').PERSONAL_DIR;
 const HOSTED_DIR = require('../utils/file').HOSTED_DIR;
 const fileSystem = require('../utils/file').fileSystem;
 const fs = require('fs');
+const path = require('path');
 
 batchain
   .command('sample', 'see the sample nodes running in LAN')
@@ -107,6 +108,10 @@ async function sendPatchMessage(manifestPath) {
   }
 }
 
+function validManifestExt(filePath) {
+  const validExtention = '.batchain';
+  return validExtention === path.extname(filePath);
+}
 
 function displayFileList() {
   const manifestFolder = './manifest/';
@@ -117,6 +122,7 @@ function displayFileList() {
     console.log(chalk.bold.cyan("You current file list: "));
 
     fs.readdirSync(manifestFolder).forEach(file => {
+      if (!validManifestExt(file)) { return; };
       const manifestFilePath = manifestFolder + file;
       const manifest = fileSystem.loadManifest(manifestFilePath);
       console.log('name: ' + manifest.fileName + '; manifest path: ' + manifestFilePath);

@@ -153,21 +153,21 @@ exports.fileSystem = (function(){
 
     const filePath = './shards/' + chunkId;
 
-    fileSystem.writeFileSync(filePath, chunk)
+    fs.writeFileSync(filePath, chunk)
   }
   // TODO Just pass in fileName instead of whole manifest object
   const assembleShards = (fileName, chunkIds) => {
     const chunkDir = './shards'
-    if (!fileSystem.existsSync(chunkDir)){ fileSystem.mkdirSync(chunkDir); }
+    if (!fs.existsSync(chunkDir)){ fs.mkdirSync(chunkDir); }
     const filePaths = chunkIds.map(chunkId => chunkDir + '/' + chunkId)
 
     const destinationDir = './personal'
 
     const fileDestination = destinationDir + '/' + fileName
-    let writeStream = fileSystem.createWriteStream(fileDestination)
+    let writeStream = fs.createWriteStream(fileDestination)
 
     filePaths.forEach(path => {
-      let fileData = fileSystem.readFileSync(path)
+      let fileData = fs.readFileSync(path)
       writeStream.write(fileData, function() {
         console.log("filePath: " + path + " size " + fs.statSync(path).size);
       });
