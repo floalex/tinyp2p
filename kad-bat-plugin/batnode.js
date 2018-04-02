@@ -212,14 +212,14 @@ class BatNode {
   }
 
   retrieveFile(manifestFilePath, copyIdx = 0, distinctIdx = 0) {
-    let manifest = fileUtils.loadManifest(manifestFilePath);
+    let manifestJson = fileUtils.loadManifest(manifestFilePath);
     const distinctShards = fileUtils.getArrayOfShards(manifestFilePath)
-    const fileName = manifest.fileName;
+    const fileName = manifestJson.fileName;
     console.log("retrieveFile name: ", fileName);
-    this.retrieveSingleCopy(distinctShards, manifest.chunks, fileName, manifest, distinctIdx, copyIdx)
+    this.retrieveSingleCopy(distinctShards, manifestJson.chunks, fileName, manifestJson, distinctIdx, copyIdx)
   }
 
-  retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx){
+  retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx, copyIdx){
     console.log("distinctIdx before afterHostNode: ", distinctIdx);
     if (copyIdx && copyIdx > 2) {
       console.log('Host could not be found with the correct shard')
@@ -230,7 +230,7 @@ class BatNode {
       // need kadnode for finding stellar account
       const afterHostNodeIsFound = (hostBatNode, kadNode) => {
         if (hostBatNode[0] === 'false'){
-          this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx, copyIdx + 1)
+          this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx, copyIdx + 1)
         } else {
           this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
             console.log("The target node returned this stellard id: ", accountId)
@@ -244,8 +244,8 @@ class BatNode {
             console.log("distinctIdx in afterHostNode: ", distinctIdx);
           
             this.sendPaymentFor(accountId, (paymentResult) => {
-              this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifest, retrieveOptions, () => {
-                this.retrieveSingleCopy(distinctShards, allShards, fileName, manifest, distinctIdx + 1, copyIdx)
+              this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifestJson, retrieveOptions, () => {
+                this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx + 1, copyIdx)
               })
             })
           });
@@ -284,10 +284,10 @@ class BatNode {
   //   console.log(results);
   // }
   
-  issueRetrieveShardRequest(shardId, hostBatNode, manifest, options, finishCallback){
+  issueRetrieveShardRequest(shardId, hostBatNode, manifestJson, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
    
-   const completeFileSize = manifest.fileSize;
+   const completeFileSize = manifestJson.fileSize;
   // let chunkLengh = 0;
     
    const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
