@@ -44,14 +44,14 @@ class BatNode {
     })
   }
   
-  sendPaymentFor(destinationAccountId, onSuccessfulPayment) {
+  sendPaymentFor(destinationAccountId, onSuccessfulPayment, numberOfBytes) {
     console.log(destinationAccountId, ' sending payment to that account')
     let stellarSeed = fileUtils.getStellarSecretSeed();
-    let amount = "10";
-    stellar.sendPayment(destinationAccountId, stellarSeed, amount, onSuccessfulPayment)
-    // get stellar secret key
-    // calculate cost of sending shard
-    // stellar.sendPayment(destinationAccountId, secretKey, amount, onSuccessfulPayment)
+    let amount = 1;
+    if (numberOfBytes) {
+      amount *= numberOfBytes
+    }
+    stellar.sendPayment(destinationAccountId, stellarSeed, `${amount}`, onSuccessfulPayment)
   }
 
   // TCP server
@@ -259,19 +259,20 @@ class BatNode {
   }
 
   // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-  combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
-    return new Promise(resolve => {
+  combineShardsAfterWaitTime(waitTime, fileName, distinctShards, error) {
+    return new Promise((resolve, reject) => {
+      if (error) reject(error);
       setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
     });
   }
   
-  async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
+  async asyncCallAssembleShards(waitTime, fileName, distinctShards, error) {
     try {
       console.log("waiting time in ms: ", waitTime);
-      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
+      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards, error);
       return result;
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     }
   }
   
