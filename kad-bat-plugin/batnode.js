@@ -259,17 +259,17 @@ class BatNode {
   }
 
   // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-  combineShardsAfterWaitTime(waitTime, fileName, distinctShards, error) {
+  combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
     return new Promise((resolve, reject) => {
-      if (error) reject(error);
+      if (!fileName) reject(console.log("No file found"));
       setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
     });
   }
   
-  async asyncCallAssembleShards(waitTime, fileName, distinctShards, error) {
+  async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
     try {
       console.log("waiting time in ms: ", waitTime);
-      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards, error);
+      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
       return result;
     } catch (error) {
       console.error(error);
@@ -302,6 +302,7 @@ class BatNode {
       // console.log('retrieve data from server!')
     });
     
+    if (!fs.existsSync('./shards/')){ fs.mkdirSync('./shards/'); }
     const fileDestination = './shards/' + saveShardAs;
     let shardStream = fs.createWriteStream(fileDestination);
     
