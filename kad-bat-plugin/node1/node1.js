@@ -9,6 +9,7 @@ const seed = require('../../constants').SEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
+const backoff = require('backoff');
 
 // Create first node... Will act as a seed node
 
@@ -39,6 +40,8 @@ const kadnode1 = new kad.KademliaNode({
     serverConnection.pipe(stream);
     
     stream.on('data', (receivedData, error) => {
+      console.log("node 1 receivedData: ", receivedData);
+      
       if (receivedData.messageType === "RETRIEVE_FILE") {
         console.log("node 1 receivedData: ", receivedData); 
         batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
@@ -59,11 +62,15 @@ const kadnode1 = new kad.KademliaNode({
           })
         })
       } else if (receivedData.messageType === "AUDIT_FILE") {
-        batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+        batnode1.readFile(`./hosted/${receivedData.fileName}`, (err, data) => {
           const shardSha1 = fileUtils.sha1HashData(data);
-          // console.log("shardSha1: ", shardSha1);
+          console.log("shard: ", shardSha1);
           serverConnection.write(shardSha1);
         });
+        // const auditFile = './hosted/' + receivedData.fileName;
+        // const shardSha1 = fileUtils.sha1Hash(auditFile);
+        // console.log("shard: ", shardSha1);
+        // serverConnection.write(shardSha1);
       }
   })
 }

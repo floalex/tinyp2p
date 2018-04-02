@@ -8,10 +8,13 @@ const fs = require('fs');
 const JSONStream = require('JSONStream');
 const stellar = require('../utils/stellar').stellar;
 const dotenv = require('dotenv');
+const constants = require('../constants');
+
 
 class BatNode {
   constructor(kadenceNode = {}) {
     this._kadenceNode = kadenceNode;
+    this._audit = { ready: false, data: null, passed: false, failed: [] };
     
     fs.exists('./hosted', (exists) => {
       if (!exists){
@@ -71,6 +74,10 @@ class BatNode {
   getStellarAccountInfo(){
     let accountId = this.stellarAccountId;
     stellar.getAccountInfo(accountId)
+  }
+  
+  get audit() {
+    return this._audit
   }
 
   get server(){
@@ -336,14 +343,22 @@ class BatNode {
     })
   }
 
-  auditFile(manifestFilePath) {
+  auditFile(manifestFilePath, shaIdx = 0, shardAuditData=null, shaIds=null, shards=null) {
     const manifest = fileUtils.loadManifest(manifestFilePath);
-    const shards = manifest.chunks;
-    const shaIds = Object.keys(shards);
-    const fileName = manifest.fileName;
-    let shaIdx = 0;
 
-    const shardAuditData = shaIds.reduce((acc, shaId) => {
+    if (shaIdx === 0){
+      shards = manifest.chunks;
+      shaIds = Object.keys(shards);
+      shardAuditData = this.prepareAuditData(shards, shaIds);
+    }
+
+    if (shaIds.length > shaIdx) {
+      this.auditShardsGroup(shards, shaIds, shaIdx, shardAuditData, 0, manifestFilePath);
+    }
+  }
+  
+  prepareAuditData(shards, shaIds) {
+    return shaIds.reduce((acc, shaId) => {
       acc[shaId] = {};
 
       shards[shaId].forEach((shardId) => {
@@ -352,11 +367,6 @@ class BatNode {
 
       return acc;
     }, {});
-
-    while (shaIds.length > shaIdx) {
-      this.auditShardsGroup(shards, shaIds, shaIdx, shardAuditData);
-      shaIdx += 1;
-    }
   }
   /**
    * Tests the redudant copies of the original shard for data integrity.
@@ -366,29 +376,29 @@ class BatNode {
    * @param {shardAuditData} Object - same as shards param except instead of an
    * array of shard ids it's an object of shard ids and their audit status
   */
-  auditShardsGroup(shards, shaIds, shaIdx, shardAuditData) {
-    let shardDupIdx = 0;
-    let duplicatesAudited = 0;
+  auditShardsGroup(shards, shaIds, shaIdx, shardAuditData, shardDupIdx, manifestFilePath) {
+    
     const shaId = shaIds[shaIdx];
 
-    while (shards[shaId].length > shardDupIdx) {
-      this.auditShard(shards, shardDupIdx, shaId, shaIdx, shardAuditData);
-      shardDupIdx += 1;
+    if (shards[shaId].length > shardDupIdx) {
+      this.auditShard(shards, shardDupIdx, shaId, shaIdx, shardAuditData, shaIds, manifestFilePath);
+    } else {
+      this.auditFile(manifestFilePath, shaIdx+1, shardAuditData, shaIds, shards)
     }
   }
 
-  auditShard(shards, shardDupIdx, shaId, shaIdx, shardAuditData) {
+  auditShard(shards, shardDupIdx, shaId, shaIdx, shardAuditData, shaIds, manifestFilePath) {
     const shardId = shards[shaId][shardDupIdx];
 
     this.kadenceNode.iterativeFindValue(shardId, (err, value, responder) => {
       let kadNodeTarget = value.value;
       this.kadenceNode.getOtherBatNodeContact(kadNodeTarget, (err, batNode) => {
-        this.auditShardData(batNode, shards, shaIdx, shardDupIdx, shardAuditData)
+        this.auditShardData(batNode, shards, shaIdx, shardDupIdx, shardAuditData, shaIds, manifestFilePath)
       })
     })
   }
 
-  auditShardData(targetBatNode, shards, shaIdx, shardDupIdx, shardAuditData) {
+  auditShardData(targetBatNode, shards, shaIdx, shardDupIdx, shardAuditData, shaIds, manifestFilePath) {
     let client = this.connect(targetBatNode.port, targetBatNode.host);
 
     const shaKeys = Object.keys(shards);
@@ -415,24 +425,70 @@ class BatNode {
       }
 
       if (finalShaGroup && finalShard) {
-        this.auditResults(shardAuditData, shaKeys);
+
+        const hasBaselineRedundancy = this.auditResults(shardAuditData, shaKeys);
+        this.audit.ready = true;
+        this.audit.data = shardAuditData;
+        this.audit.passed = hasBaselineRedundancy;
+
+        console.log(shardAuditData);
+        if (hasBaselineRedundancy) {
+          console.log('Passed audit!');
+        } else {
+          console.log('Failed Audit');
+        }
+
+
+      } else {
+        this.auditShardsGroup(shards, shaIds, shaIdx,shardAuditData, shardDupIdx + 1, manifestFilePath)
       }
     })
   }
+  
+  auditResults(auditData, shaKeys) {
+    const isRedundant = (shaId) => {
+      let validShards = 0;
+      // For each key (shardId) under the shard content's shaId key
+      Object.keys(auditData[shaId]).forEach((shardId) => {
+        if (auditData[shaId][shardId] === true) { validShards += 1; }
+      });
 
-  auditResults(shardAuditData, shaKeys) {
-    const dataValid = shaKeys.every((shaId) => {
-      // For each key in the values object for the shaId key
-      return Object.keys(shardAuditData[shaId]).every((shardId) => {
-        return shardAuditData[shaId][shardId] === true;
-      })
-    });
-    console.log(shardAuditData);
-    if (dataValid) {
-      console.log('Passed audit!');
-    } else {
-      console.log('Failed Audit');
+      if (validShards >= constants.BASELINE_REDUNDANCY) {
+        return true;
+      } else {
+        this.audit.failed.push(shaId);
+        return false;
+      }
     }
+
+    return shaKeys.every(isRedundant);
+  }
+  
+  patchFile(siblingShardData, manifestPath, failedShaId, hostBatNodeContact) {
+    // Store new shard
+    const newShardId = fileUtils.createRandomShardId(siblingShardData);
+    const { port, host } = hostBatNodeContact;
+    const client = this.connect(port, host)
+    const message = {
+      messageType: "STORE_FILE",
+      fileName: newShardId,
+      fileContent: siblingShardData,
+    };
+
+    client.write(JSON.stringify(message));
+
+    // Should wait for the server to respond with success before starting?
+    client.on('data', () => {
+      fs.readFile(manifestPath, (error, manifestData) => {
+        if (error) { throw error; }
+        let manifestJson = JSON.parse(manifestData);
+        manifestJson.chunks[failedShaId].push(newShardId);
+
+        fs.writeFile(manifestPath, JSON.stringify(manifestJson, null, '\t'), (err) => {
+          if (err) { throw err; }
+        });
+      });
+    })
   }
 
 }

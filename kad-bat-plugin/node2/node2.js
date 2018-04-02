@@ -9,6 +9,7 @@ const seed = require('../../constants').SEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
+const backoff = require('backoff');
 //console.log(seed)
 
 // Create second batnode kadnode pair
@@ -28,6 +29,25 @@ kadnode2 = new kad.KademliaNode({
     
     
     const nodeConnectionCallback = (serverConnection) => {
+      const sendAuditDataWhenFinished = (exponentialBackoff) => {
+        exponentialBackoff.failAfter(10);
+        exponentialBackoff.on('backoff', function(number, delay) {
+          console.log(number + ' ' + delay + 'ms');
+        });
+        exponentialBackoff.on('ready', function() {
+          if (!batnode2.audit.ready) {
+            exponentialBackoff.backoff();
+          } else {
+            serverConnection.write(JSON.stringify(batnode2.audit));
+            return;
+          }
+        });
+        exponentialBackoff.on('fail', function() {
+          console.log('Timeout: failed to complete audit');
+        });
+        exponentialBackoff.backoff();
+      }
+    
       serverConnection.on('end', () => {
         console.log('end')
       })
@@ -48,20 +68,25 @@ kadnode2 = new kad.KademliaNode({
           // console.log("fileName: ", fileName);
           batnode2.kadenceNode.iterativeStore(fileName, [batnode2.kadenceNode.identity.toString(), batnode2.kadenceNode.contact], (err, stored) => {
         // console.log('nodes who stored this value: ', stored)
-        let fileContent = new Buffer(receivedData.fileContent)
-        batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
-          if (err) {
-            throw err;
-          }
-          serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
+          let fileContent = new Buffer(receivedData.fileContent)
+          batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
+            if (err) {
+              throw err;
+            }
+            serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
+          })
         })
-      })
-    } else if (receivedData.messageType === "AUDIT_FILE") {
-      batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-        const shardSha1 = fileUtils.sha1HashData(data);
-        serverConnection.write(shardSha1);
-      });
-    }
+      } else if (receivedData.messageType === "AUDIT_FILE") {
+        batnode2.readFile(`./hosted/${receivedData.fileName}`, (err, data) => {
+          const shardSha1 = fileUtils.sha1HashData(data);
+          console.log("shard: ", shardSha1)
+          serverConnection.write(shardSha1);
+        });
+        // const auditFile = './hosted/' + receivedData.fileName;
+        // const shardSha1 = fileUtils.sha1Hash(auditFile);
+        // console.log("shard: ", shardSha1);
+        // serverConnection.write(shardSha1);
+      }
   })
 }
 
