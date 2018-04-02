@@ -35,6 +35,7 @@ kadnode3.join(seed, () => {
 })
 
 const nodeCLIConnectionCallback = (serverConnection) => {
+    
   const sendAuditDataWhenFinished = (exponentialBackoff) => {
     exponentialBackoff.failAfter(10);
     exponentialBackoff.on('backoff', function(number, delay) {
@@ -55,6 +56,7 @@ const nodeCLIConnectionCallback = (serverConnection) => {
   }
 
   serverConnection.on('data', (data) => {
+  
     let receivedData = JSON.parse(data);
   
     if (receivedData.messageType === "CLI_UPLOAD_FILE") {
@@ -108,6 +110,8 @@ const nodeCLIConnectionCallback = (serverConnection) => {
     })
 }
 
+// increase the listener limit to prevent Possible EventEmitter memory leak when other nodes connect/disconnet
+process.setMaxListeners(0);
 batnode3.createCLIServer(1800, 'localhost', nodeCLIConnectionCallback);
 
 

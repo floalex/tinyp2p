@@ -297,9 +297,6 @@ class BatNode {
       fileName: shardId
     };
     
-    // increase the listener limit to prevent Possible EventEmitter memory leak detected
-    process.setMaxListeners(100);
-    
     client.write(JSON.stringify(message), () => {
       console.log("retriving distinctIdx: ", distinctIdx);
       // console.log('retrieve data from server!')
