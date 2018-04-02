@@ -261,7 +261,7 @@ class BatNode {
   // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
   combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
     return new Promise((resolve, reject) => {
-      if (!fileName || !distinctShards) reject(console.log("No file found"));
+      if (!fileName || !distinctShards) reject(console.log("Error occurred."));
       setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
     });
   }
