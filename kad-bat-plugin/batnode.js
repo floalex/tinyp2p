@@ -270,21 +270,9 @@ class BatNode {
     }
   }
   
-  // async function dbFuc(db) {
-  //   let docs = [{}, {}, {}];
-  //   let promises = docs.map((doc) => db.post(doc));
-  
-  //   let results = await Promise.all(promises);
-  //   console.log(results);
-  // }
-
   // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-  combineShardsAfterWaitTime(waitTime, completeFileSize, fileName, distinctShards) {
-    // return new Promise((resolve, reject) => {
-    //   if (!fileName || !distinctShards) reject(console.log("Error occurred."));
-    //   setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
-    // });
-    
+  sumShardsAfterInterval(completeFileSize, fileName, distinctShards) {
+ 
     let sumShardSize;
     return new Promise((resolve, reject) => {
       const refreshShardSize = setInterval(function() {
@@ -304,20 +292,9 @@ class BatNode {
     });
   }
   
-  // async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
-  //   try {
-  //     console.log("waiting time in ms: ", waitTime);
-  //     const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
-  //     return result;
-  //   } catch (error) {
-  //     console.error(error);
-  //   }
-  // }
-  
-  async asyncCallAssembleShards(waitTime, completeFileSize, fileName, distinctShards) {
-    console.log("Estimated waiting time in ms: ", waitTime);
-    const result = await this.combineShardsAfterWaitTime(waitTime, completeFileSize, fileName, distinctShards);
-    console.log(result);
+  async asyncCallAssembleShards(completeFileSize, fileName, distinctShards) {
+    const result = await this.sumShardsAfterInterval(completeFileSize, fileName, distinctShards);
+ 
     if (result === completeFileSize) {
       fileUtils.assembleShards(fileName, distinctShards);
     } else {
@@ -340,14 +317,11 @@ class BatNode {
     
     client.write(JSON.stringify(message), () => {
       console.log("retriving distinctIdx: ", distinctIdx);
-      // console.log('retrieve data from server!')
     });
     
     if (!fs.existsSync('./shards/')){ fs.mkdirSync('./shards/'); }
     const fileDestination = './shards/' + saveShardAs;
     let shardStream = fs.createWriteStream(fileDestination);
-    
-    const waitTime = Math.floor(completeFileSize/16000);  // set the amount slightly below 16kb ~ 16384 (the default high watermark for read/write streams)
     
     // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
     client.once('data', (data) => {
@@ -363,14 +337,11 @@ class BatNode {
       
       if (distinctIdx >= distinctShards.length - 1) {
         // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
-        this.asyncCallAssembleShards(waitTime, completeFileSize, fileName, distinctShards);
+        this.asyncCallAssembleShards(completeFileSize, fileName, distinctShards);
       } else {          
         finishCallback();
       } 
       
-      // still works by putting down here 
-      // client.pipe(shardStream);
-    
     });
 
    });
