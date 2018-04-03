@@ -22,12 +22,17 @@ class BatNode {
       }
     })
     
-    if (!fs.existsSync('./.env') || !dotenv.config().parsed.STELLAR_ACCOUNT_ID || !dotenv.config().parsed.STELLAR_SECRET) {
+    if (!fs.existsSync('./.env')) { fs.closeSync(fs.openSync('./.env', 'w')); }
+
+    if (this.noStellarAccount()) {
       let stellarKeyPair = stellar.generateKeys()
+
       fileUtils.generateEnvFile({
-        'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(), 
+        'STELLAR_ACCOUNT_ID': stellarKeyPair.publicKey(),
         'STELLAR_SECRET': stellarKeyPair.secret()
       })
+    } else if (this.noPrivateKey()) {
+      fileUtils.generateEnvFile();
     }
     
     this._stellarAccountId = fileUtils.getStellarAccountId();
@@ -42,6 +47,14 @@ class BatNode {
       console.log('account does not exist, creating account...')
       stellar.createNewAccount(publicKey)
     })
+  }
+  
+  noPrivateKey() {
+    return !dotenv.config().parsed.PRIVATE_KEY
+  }
+
+  noStellarAccount() {
+    return !dotenv.config().parsed.STELLAR_ACCOUNT_ID || !dotenv.config().parsed.STELLAR_SECRET
   }
   
   sendPaymentFor(destinationAccountId, onSuccessfulPayment, numberOfBytes) {
@@ -220,7 +233,7 @@ class BatNode {
   }
 
   retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx, copyIdx){
-    console.log("distinctIdx before afterHostNode: ", distinctIdx);
+    
     if (copyIdx && copyIdx > 2) {
       console.log('Host could not be found with the correct shard')
     } else {
@@ -228,26 +241,25 @@ class BatNode {
       let currentCopy = currentCopies[copyIdx]
             
       // need kadnode for finding stellar account
-      const afterHostNodeIsFound = (hostBatNode, kadNode) => {
-        if (hostBatNode[0] === 'false'){
+      const afterHostNodeIsFound = (hostBatNode, kadNode, nextCopy=false) => {
+        if (hostBatNode[0] === 'false' || nextCopy === true){
           this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx, copyIdx + 1)
         } else {
           this.kadenceNode.getOtherNodeStellarAccount(kadNode, (error, accountId) => {
-            console.log("The target node returned this stellard id: ", accountId)
+
             let retrieveOptions = {
               saveShardAs: distinctShards[distinctIdx],
               distinctShards,
               fileName,
               distinctIdx,
             }
-          
+            
             console.log("distinctIdx in afterHostNode: ", distinctIdx);
-          
             this.sendPaymentFor(accountId, (paymentResult) => {
               this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifestJson, retrieveOptions, () => {
                 this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx + 1, copyIdx)
               })
-            })
+            });
           });
         }
       }
@@ -255,24 +267,6 @@ class BatNode {
       console.log("currentCopy: ", currentCopy);
       
       this.getHostNode(currentCopy, afterHostNodeIsFound)
-    }
-  }
-
-  // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
-  combineShardsAfterWaitTime(waitTime, fileName, distinctShards) {
-    return new Promise((resolve, reject) => {
-      if (!fileName || !distinctShards) reject(console.log("Error occurred."));
-      setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
-    });
-  }
-  
-  async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
-    try {
-      console.log("waiting time in ms: ", waitTime);
-      const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
-      return result;
-    } catch (error) {
-      console.error(error);
     }
   }
   
@@ -283,12 +277,59 @@ class BatNode {
   //   let results = await Promise.all(promises);
   //   console.log(results);
   // }
+
+  // async example: https://gist.github.com/wesbos/1866f918824936ffb73d8fd0b02879b4
+  combineShardsAfterWaitTime(waitTime, completeFileSize, fileName, distinctShards) {
+    // return new Promise((resolve, reject) => {
+    //   if (!fileName || !distinctShards) reject(console.log("Error occurred."));
+    //   setTimeout(() => resolve(fileUtils.assembleShards(fileName, distinctShards)), waitTime);
+    // });
+    
+    let sumShardSize;
+    return new Promise((resolve, reject) => {
+      const refreshShardSize = setInterval(function() {
+        sumShardSize = distinctShards.reduce(
+          (accumulator, fileName) => {
+            const filePath = './shards/' + fileName;
+            return accumulator + fs.statSync(filePath).size;
+          },
+          0
+        );
+        
+        if (sumShardSize >= completeFileSize) {
+          clearInterval(refreshShardSize);
+          resolve(sumShardSize);
+        }
+      }, 500);
+    });
+  }
+  
+  // async asyncCallAssembleShards(waitTime, fileName, distinctShards) {
+  //   try {
+  //     console.log("waiting time in ms: ", waitTime);
+  //     const result = await this.combineShardsAfterWaitTime(waitTime, fileName, distinctShards);
+  //     return result;
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // }
+  
+  async asyncCallAssembleShards(waitTime, completeFileSize, fileName, distinctShards) {
+    console.log("Estimated waiting time in ms: ", waitTime);
+    const result = await this.combineShardsAfterWaitTime(waitTime, completeFileSize, fileName, distinctShards);
+    console.log(result);
+    if (result === completeFileSize) {
+      fileUtils.assembleShards(fileName, distinctShards);
+    } else {
+      new Error(console.log("Error occurred, file size does not match manifest's record."));
+    }
+  }
+  
   
   issueRetrieveShardRequest(shardId, hostBatNode, manifestJson, options, finishCallback){
    let { saveShardAs, distinctIdx, distinctShards, fileName } = options
    
    const completeFileSize = manifestJson.fileSize;
-  // let chunkLengh = 0;
     
    const client = this.connect(hostBatNode.port, hostBatNode.host, () => {
    
@@ -322,7 +363,7 @@ class BatNode {
       
       if (distinctIdx >= distinctShards.length - 1) {
         // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
-        this.asyncCallAssembleShards(waitTime, fileName, distinctShards);
+        this.asyncCallAssembleShards(waitTime, completeFileSize, fileName, distinctShards);
       } else {          
         finishCallback();
       } 
@@ -337,15 +378,19 @@ class BatNode {
   }
 
   getHostNode(shardId, callback){
-    this.kadenceNode.iterativeFindValue(shardId, (err, value, responder) => {
-      // console.log("hostNode shard: ", shardId);
+    this.kadenceNode.iterativeFindValue(shardId, (error, value, responder) => {
+      if (error) { throw error; }
       let kadNodeTarget = value.value;
-      
-      // pass kadNode to get the stellar account in callback
-      this.kadenceNode.getOtherBatNodeContact(kadNodeTarget, (err, batNode) => {
-        // console.log('kadNodeTarget: ', kadNodeTarget);
-        console.log('getHostNode batnode: ', batNode);
-        callback(batNode, kadNodeTarget)
+
+      this.kadenceNode.ping(kadNodeTarget, (pingErr) => {
+        if (pingErr){
+          callback(null, null, true) // if kadnode is not alive, try to retrieve another shard copy
+        } else {
+          this.kadenceNode.getOtherBatNodeContact(kadNodeTarget, (err, batNode) => {
+            if (err) { throw err; }
+            callback(batNode, kadNodeTarget)
+          })
+        }
       })
     })
   }

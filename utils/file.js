@@ -22,17 +22,19 @@ exports.fileSystem = (function(){
   }
   const generateEnvFile = (optionalVars) => {
     let envVarsToWrite = '';
-    if (!fileSystem.existsSync('./.env') || !dotenv.config().parsed.PRIVATE_KEY){
+    if (!dotenv.config().parsed.PRIVATE_KEY){
       const privateKey = `PRIVATE_KEY=${generatePrivateKey()}\n`
       envVarsToWrite = envVarsToWrite.concat(privateKey)
-    } 
+    }
+
     if (optionalVars){
       Object.keys(optionalVars).forEach(key => {
         envVarsToWrite = envVarsToWrite.concat(`${key}=${optionalVars[key]}\n`)
       })
     }
+
     if (envVarsToWrite !== ''){
-      fileSystem.writeFileSync('./.env', envVarsToWrite)
+      fileSystem.appendFileSync('./.env', envVarsToWrite)
     }
   }
   const getStellarAccountId = () => {
