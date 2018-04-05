@@ -10,6 +10,7 @@ const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
 const backoff = require('backoff');
+const fs = require('fs');
 //console.log(seed)
 
 // Create second batnode kadnode pair
@@ -68,13 +69,20 @@ kadnode2 = new kad.KademliaNode({
           // console.log("fileName: ", fileName);
           batnode2.kadenceNode.iterativeStore(fileName, [batnode2.kadenceNode.identity.toString(), batnode2.kadenceNode.contact], (err, stored) => {
         // console.log('nodes who stored this value: ', stored)
-          let fileContent = new Buffer(receivedData.fileContent)
-          batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
-            if (err) {
+          let fileContent = new Buffer(receivedData.fileContent);
+          let storeStream = fs.createWriteStream("./hosted/" + fileName);
+          storeStream.write(fileContent, function (err) {
+            if(err){
               throw err;
             }
-            serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
-          })
+            serverConnection.write(JSON.stringify({messageType: "SUCCESS"}));
+          });
+          // batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
+          //   if (err) {
+          //     throw err;
+          //   }
+          //   serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
+          // })
         })
       } else if (receivedData.messageType === "AUDIT_FILE") {
         batnode2.readFile(`./hosted/${receivedData.fileName}`, (err, data) => {

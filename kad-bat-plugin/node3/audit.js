@@ -16,3 +16,4 @@ const sha1HashData = (fileData) => {
 
 const file = '../node1/hosted/8b535cb7659db6730e11409a7f0cce38bcceda35';
 console.log(fs.statSync(file).size);
+console.log(sha1Hash(file));
