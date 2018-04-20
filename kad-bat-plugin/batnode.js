@@ -255,11 +255,11 @@ class BatNode {
             }
             
             console.log("distinctIdx in afterHostNode: ", distinctIdx);
-            this.sendPaymentFor(accountId, (paymentResult) => {
+            // this.sendPaymentFor(accountId, (paymentResult) => {
               this.issueRetrieveShardRequest(currentCopy, hostBatNode, manifestJson, retrieveOptions, () => {
                 this.retrieveSingleCopy(distinctShards, allShards, fileName, manifestJson, distinctIdx + 1, copyIdx)
               })
-            });
+            // });
           });
         }
       }
@@ -348,26 +348,16 @@ class BatNode {
     const fileDestination = './shards/' + saveShardAs;
     let shardStream = fs.createWriteStream(fileDestination);
     
-    // https://stackoverflow.com/questions/20629893/node-js-socket-pipe-method-does-not-pipe-last-packet-to-the-http-response
-    client.once('data', (data) => {
-      
-      shardStream.write(data, function (err) {
-        if(err){
-          throw err;
-        }
-      });
-     
-      // read all file and pipe it (write it) to the fileDestination 
-      client.pipe(shardStream);
-      
-      if (distinctIdx >= distinctShards.length - 1) {
-        // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
-        this.asyncCallAssembleShards(completeFileSize, fileName, distinctShards);
-      } else {          
-        finishCallback();
-      } 
-      
-    });
+    // read all file and pipe it (write it) to the fileDestination 
+    client.pipe(shardStream);
+    
+    // console.log("writable lengh: ", shardStream.writableLength);
+    if (distinctIdx >= distinctShards.length - 1) {
+      // fileUtils.assembleShards(fileName, distinctShards);  // can't use stream end here since we still listen to client's data
+      this.asyncCallAssembleShards(completeFileSize, fileName, distinctShards);
+    } else {          
+      finishCallback();
+    }     
 
    });
    
