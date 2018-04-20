@@ -67,6 +67,7 @@ kadnode2 = new kad.KademliaNode({
         } else if (receivedData.messageType === "STORE_FILE"){
           let fileName = receivedData.fileName
           // console.log("fileName: ", fileName);
+          // without `iterativeStore`, uploader will get error when retrieve file
           batnode2.kadenceNode.iterativeStore(fileName, [batnode2.kadenceNode.identity.toString(), batnode2.kadenceNode.contact], (err, stored) => {
         // console.log('nodes who stored this value: ', stored)
           let fileContent = new Buffer(receivedData.fileContent);
