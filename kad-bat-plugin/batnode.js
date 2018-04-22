@@ -619,16 +619,19 @@ class BatNode {
         };
         client.write(JSON.stringify(message));
         
-        let shardData = '';
+        // let shardData = new Buffer('');
+        let bufferArr = [];
         client.on('data', (chunk) => {
-          // console.log("chunk size: ", chunk.length);
-          shardData += chunk;
-          
+          // `Buffer.byteLength` to check the buffer size
+          console.log("chunk size with length: ", chunk.length);
+          console.log("chunk size with buffer: ", Buffer.byteLength(chunk, 'utf8') + ' bytes')
+          bufferArr.push(Buffer.from(chunk));       
           client.end();
           // }
         })
         client.on('end', () => {
-          console.log("shardData size: ", shardData.length + ' bytes'); 
+          const shardData = Buffer.concat(bufferArr);
+          // console.log("shardData size: ", shardData.length + ' bytes'); 
           const newShardId = fileUtils.createRandomShardId(shardData);
           this.getClosestBatNodeToShard(newShardId, (closestBatNode, kadNode) => {
 
@@ -642,23 +645,24 @@ class BatNode {
                 }
                 let storeClient = this.connect(closestBatNode.port, closestBatNode.host)
                 console.log("new shard: ", newShardId);
-                console.log();
-                // storeClient.write(JSON.stringify(storeMessage))
+                console.log("shardData length: ", shardData.length);
+                console.log("shardData size: ", Buffer.byteLength(shardData, 'utf8') + ' bytes')
+                storeClient.write(JSON.stringify(storeMessage))
     
-                // storeClient.once('data', (data) => {
-                //   fs.readFile(manifestPath, (error, manifestData) => {
-                //     if (error) { throw error; }
-                //     let manifestJson = JSON.parse(manifestData);
-                //     manifestJson.chunks[failedShaId].push(newShardId);
-                //     manifestJson.chunks[failedShaId] = manifestJson.chunks[failedShaId].filter(id => {
-                //       return !copiesToRemoveFromManifest.includes(id)
-                //     })
+                storeClient.once('data', (data) => {
+                  fs.readFile(manifestPath, (error, manifestData) => {
+                    if (error) { throw error; }
+                    let manifestJson = JSON.parse(manifestData);
+                    manifestJson.chunks[failedShaId].push(newShardId);
+                    manifestJson.chunks[failedShaId] = manifestJson.chunks[failedShaId].filter(id => {
+                      return !copiesToRemoveFromManifest.includes(id)
+                    })
     
-                //     fs.writeFile(manifestPath, JSON.stringify(manifestJson, null, '\t'), (err) => {
-                //       if (err) { throw err; }
-                //     });
-                //   });
-                // })
+                    fs.writeFile(manifestPath, JSON.stringify(manifestJson, null, '\t'), (err) => {
+                      if (err) { throw err; }
+                    });
+                  });
+                })
           //     })
           //   })
           })
