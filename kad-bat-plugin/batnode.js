@@ -658,7 +658,7 @@ class BatNode {
                 //       if (err) { throw err; }
                 //     });
                 //   });
-                })
+                // })
           //     })
           //   })
           })

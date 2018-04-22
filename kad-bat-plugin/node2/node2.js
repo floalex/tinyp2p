@@ -66,7 +66,7 @@ kadnode2 = new kad.KademliaNode({
           });
       
           readable.on('end', () => {
-            console.log('retrieval end');
+            console.log(`finish sending ${receivedData.fileName}`)
           });
         } else if (receivedData.messageType === "STORE_FILE"){
           let fileName = receivedData.fileName
