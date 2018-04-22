@@ -37,7 +37,7 @@ const getArrayOfShards = (manifestFilePath) => {
 }
 
 // const manifest = './manifest/f7951a9e7bf92e888a79788abc6abebfd374dcd6.batchain';  //pdf
-const manifest = './manifest/254a6bf49d541fcb3b668590528b8f21a4c77e02.batchain';  //mov
+const manifest = './manifest/2e815465b262f01df3ea88dfc4284065361808d1.batchain';  //mov
 const chunkIds = getArrayOfShards(manifest);
 const fileName = loadManifest(manifest).fileName;
 

@@ -5,7 +5,7 @@ const encoding = require('encoding-down');
 const kad = require('@kadenceproject/kadence');
 const BatNode = require('../batnode.js').BatNode;
 const kad_bat = require('../kadence_plugin').kad_bat;
-const seed = require('../../constants').SEED_NODE;
+const seed = require('../../constants').LOCALSEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
@@ -57,13 +57,25 @@ kadnode2 = new kad.KademliaNode({
       serverConnection.pipe(stream);
     
       stream.on('data', (receivedData, error) => {
-      
-        console.log("node 2 receivedData: ", receivedData); 
         if (receivedData.messageType === "RETRIEVE_FILE") {
           
-          batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-            serverConnection.write(data);
-          })
+          // batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+          //   serverConnection.write(data);
+          // })
+          console.log("node 2 receivedData: ", receivedData); 
+          // batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+          //   // console.log("data: ", data);
+          //   serverConnection.write(data);
+          // })
+          const filePath = './hosted/' + receivedData.fileName;
+          const readable = fs.createReadStream(filePath);
+          readable.on('data', (chunk) => {
+            serverConnection.write(chunk);
+          });
+      
+          readable.on('end', () => {
+            console.log('retrieval end');
+          });
         } else if (receivedData.messageType === "STORE_FILE"){
           let fileName = receivedData.fileName
           // console.log("fileName: ", fileName);

@@ -5,7 +5,7 @@ const encoding = require('encoding-down');
 const kad = require('@kadenceproject/kadence');
 const BatNode = require('../batnode.js').BatNode;
 const kad_bat = require('../kadence_plugin').kad_bat;
-const seed = require('../../constants').SEED_NODE;
+const seed = require('../../constants').LOCALSEED_NODE;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
 const backoff = require('backoff');
@@ -90,22 +90,8 @@ const nodeCLIConnectionCallback = (serverConnection) => {
         sendAuditDataWhenFinished(exponentialBackoff);
 
       } else if (receivedData.messageType === "CLI_PATCH_FILE") {
-        const { manifestPath, siblingShardId, failedShaId } = receivedData;
-
-        batnode3.getClosestBatNodeToShard(siblingShardId, (hostBatNodeContact) => {
-          const { port, host } = hostBatNodeContact;
-          const client = batnode3.connect(port, host, () => {});
-          const message = {
-            messageType: "RETRIEVE_FILE",
-            fileName: siblingShardId,
-          };
-
-          client.write(JSON.stringify(message));
-
-          client.on('data', (shardData) => {
-            batnode3.patchFile(shardData, manifestPath, failedShaId, hostBatNodeContact)
-          })
-        })
+        const { manifestPath, siblingShardId, failedShaId, copiesToRemoveFromManifest } = receivedData;
+        batnode3.patchFile(manifestPath, failedShaId, siblingShardId, copiesToRemoveFromManifest)
       }
     })
 }

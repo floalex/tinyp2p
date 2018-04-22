@@ -5,7 +5,7 @@ const encoding = require('encoding-down');
 const kad = require('@kadenceproject/kadence');
 const BatNode = require('../batnode.js').BatNode;
 const kad_bat = require('../kadence_plugin').kad_bat;
-const seed = require('../../constants').SEED_NODE;
+const seed = require('../../constants').LOCALSEED_NODE;
 const fileUtils = require('../../utils/file').fileSystem;
 const JSONStream = require('JSONStream');
 const stellar_account = require('../kadence_plugin').stellar_account;
@@ -40,15 +40,22 @@ const kadnode1 = new kad.KademliaNode({
     const stream = JSONStream.parse();
     serverConnection.pipe(stream);
     
-    stream.on('data', (receivedData, error) => {
-      console.log("node 1 receivedData: ", receivedData);
-      
+    stream.on('data', (receivedData, error) => {      
       if (receivedData.messageType === "RETRIEVE_FILE") {
         console.log("node 1 receivedData: ", receivedData); 
-        batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-          // console.log("data: ", data);
-          serverConnection.write(data);
-        })
+        // batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
+        //   // console.log("data: ", data);
+        //   serverConnection.write(data);
+        // })
+        const filePath = './hosted/' + receivedData.fileName;
+        const readable = fs.createReadStream(filePath);
+        readable.on('data', (chunk) => {
+          serverConnection.write(chunk);
+        });
+    
+        readable.on('end', () => {
+          console.log('retrieval end')
+        });
       } else if (receivedData.messageType === "STORE_FILE"){
         let fileName = receivedData.fileName
         batnode1.kadenceNode.iterativeStore(fileName, [batnode1.kadenceNode.identity.toString(), batnode1.kadenceNode.contact], (err, stored) => {
@@ -70,11 +77,16 @@ const kadnode1 = new kad.KademliaNode({
           // })
         })
       } else if (receivedData.messageType === "AUDIT_FILE") {
-        batnode1.readFile(`./hosted/${receivedData.fileName}`, (err, data) => {
-          const shardSha1 = fileUtils.sha1HashData(data);
-          console.log("shard: ", shardSha1);
-          serverConnection.write(shardSha1);
-        });
+        const shardFile = './hosted/' + receivedData.fileName;
+        if (!fs.existsSync(shardFile)) { 
+          serverConnection.write("failed");
+        } else {
+          batnode1.readFile(shardFile, (err, data) => {
+            const shardSha1 = fileUtils.sha1HashData(data);
+            console.log("shard: ", shardSha1);
+            serverConnection.write(shardSha1);
+          });
+        }
         // const auditFile = './hosted/' + receivedData.fileName;
         // const shardSha1 = fileUtils.sha1Hash(auditFile);
         // console.log("shard: ", shardSha1);

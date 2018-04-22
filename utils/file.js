@@ -87,7 +87,6 @@ exports.fileSystem = (function(){
     const fileSize = manifest.fileSize;
     const setChunkNum = 8;
     // const setChunkNum = 10;
-    // TODO: Make chunk size vary by file size ~10kb
 
     const chunkNumber = fileSize % setChunkNum === 0 ? setChunkNum : setChunkNum - 1;
     const chunkSize = Math.floor(fileSize/chunkNumber);
