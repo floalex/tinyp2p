@@ -69,12 +69,6 @@ const kadnode1 = new kad.KademliaNode({
             }
             serverConnection.write(JSON.stringify({messageType: "SUCCESS"}));
           });
-          // batnode1.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
-          //   if (err) {
-          //     throw err;
-          //   }
-          //   serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
-          // })
         })
       } else if (receivedData.messageType === "AUDIT_FILE") {
         const shardFile = './hosted/' + receivedData.fileName;
@@ -87,10 +81,6 @@ const kadnode1 = new kad.KademliaNode({
             serverConnection.write(shardSha1);
           });
         }
-        // const auditFile = './hosted/' + receivedData.fileName;
-        // const shardSha1 = fileUtils.sha1Hash(auditFile);
-        // console.log("shard: ", shardSha1);
-        // serverConnection.write(shardSha1);
       }
   })
 }

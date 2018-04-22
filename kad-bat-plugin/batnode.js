@@ -642,7 +642,7 @@ class BatNode {
                 }
                 let storeClient = this.connect(closestBatNode.port, closestBatNode.host)
                 console.log("new shard: ", newShardId);
-                console.log("connected to new client: ", storeClient);
+                console.log();
                 // storeClient.write(JSON.stringify(storeMessage))
     
                 // storeClient.once('data', (data) => {

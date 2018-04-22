@@ -58,15 +58,7 @@ kadnode2 = new kad.KademliaNode({
     
       stream.on('data', (receivedData, error) => {
         if (receivedData.messageType === "RETRIEVE_FILE") {
-          
-          // batnode2.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-          //   serverConnection.write(data);
-          // })
           console.log("node 2 receivedData: ", receivedData); 
-          // batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-          //   // console.log("data: ", data);
-          //   serverConnection.write(data);
-          // })
           const filePath = './hosted/' + receivedData.fileName;
           const readable = fs.createReadStream(filePath);
           readable.on('data', (chunk) => {
@@ -90,23 +82,18 @@ kadnode2 = new kad.KademliaNode({
             }
             serverConnection.write(JSON.stringify({messageType: "SUCCESS"}));
           });
-          // batnode2.writeFile(`./hosted/${fileName}`, fileContent, (err) => {
-          //   if (err) {
-          //     throw err;
-          //   }
-          //   serverConnection.write(JSON.stringify({messageType: "SUCCESS"}))
-          // })
         })
       } else if (receivedData.messageType === "AUDIT_FILE") {
-        batnode2.readFile(`./hosted/${receivedData.fileName}`, (err, data) => {
-          const shardSha1 = fileUtils.sha1HashData(data);
-          console.log("shard: ", shardSha1)
-          serverConnection.write(shardSha1);
-        });
-        // const auditFile = './hosted/' + receivedData.fileName;
-        // const shardSha1 = fileUtils.sha1Hash(auditFile);
-        // console.log("shard: ", shardSha1);
-        // serverConnection.write(shardSha1);
+        const shardFile = './hosted/' + receivedData.fileName;
+        if (!fs.existsSync(shardFile)) { 
+          serverConnection.write("failed");
+        } else {
+          batnode2.readFile(shardFile, (err, data) => {
+            const shardSha1 = fileUtils.sha1HashData(data);
+            console.log("shard: ", shardSha1);
+            serverConnection.write(shardSha1);
+          });
+        }
       }
   })
 }
