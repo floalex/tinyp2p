@@ -43,10 +43,6 @@ const kadnode1 = new kad.KademliaNode({
     stream.on('data', (receivedData, error) => {      
       if (receivedData.messageType === "RETRIEVE_FILE") {
         console.log("node 1 receivedData: ", receivedData); 
-        // batnode1.readFile(`./hosted/${receivedData.fileName}`, (error, data) => {
-        //   // console.log("data: ", data);
-        //   serverConnection.write(data);
-        // })
         const filePath = './hosted/' + receivedData.fileName;
         const readable = fs.createReadStream(filePath);
         readable.on('data', (chunk) => {
