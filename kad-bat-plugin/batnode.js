@@ -619,16 +619,22 @@ class BatNode {
         };
         client.write(JSON.stringify(message));
         
-        // let shardData = new Buffer('');
         let bufferArr = [];
         client.on('data', (chunk) => {
           // `Buffer.byteLength` to check the buffer size
           console.log("chunk size with length: ", chunk.length);
           console.log("chunk size with buffer: ", Buffer.byteLength(chunk, 'utf8') + ' bytes')
-          bufferArr.push(Buffer.from(chunk));       
-          client.end();
-          // }
+          
+          // need checking condition to make sure all the chunks have been received and avoid connection ends too early
+          if (Buffer.from(chunk).toString('utf8') === "finish sending data") {
+            console.log(Buffer.from(chunk).toString('utf8'));
+            client.end();
+          } else {
+            bufferArr.push(Buffer.from(chunk));   
+          }
+          
         })
+        
         client.on('end', () => {
           const shardData = Buffer.concat(bufferArr);
           // console.log("shardData size: ", shardData.length + ' bytes'); 
