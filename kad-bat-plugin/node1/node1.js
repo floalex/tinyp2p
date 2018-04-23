@@ -50,9 +50,6 @@ const kadnode1 = new kad.KademliaNode({
         });
     
         readable.on('end', () => {
-          setTimeout(function() { 
-            serverConnection.write("finish sending data");
-          }, 500);  
           console.log(`finish sending ${receivedData.fileName}`); 
         });
       } else if (receivedData.messageType === "STORE_FILE"){
@@ -80,6 +77,20 @@ const kadnode1 = new kad.KademliaNode({
             serverConnection.write(shardSha1);
           });
         }
+      } else if (receivedData.messageType === "PATCH_FILE") {
+        console.log("node 1 receivedData: ", receivedData); 
+        const filePath = './hosted/' + receivedData.fileName;
+        const readable = fs.createReadStream(filePath);
+        readable.on('data', (chunk) => {
+          serverConnection.write(chunk);
+        });
+    
+        readable.on('end', () => {
+          setTimeout(function() { 
+            serverConnection.write("finish sending data");
+          }, 500);  
+          console.log(`finish sending ${receivedData.fileName}`); 
+        });
       }
   })
 }
